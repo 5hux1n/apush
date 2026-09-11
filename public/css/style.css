@@ -210,18 +210,18 @@ body { margin: 0; padding: 0; background: var(--bg); color: var(--text); font-fa
 
 /* 节点样式 */
 .flow-node {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
+    display: inline-block;
+    vertical-align: middle;
     font-size: 0.72rem;
     color: var(--muted);
     background: #f2f2f7;
     padding: 2px 6px;
     border-radius: 4px;
     white-space: nowrap;
-    max-width: 120px;
+    max-width: 200px;
     overflow: hidden;
     text-overflow: ellipsis;
+    min-width: 0;
 }
 
 /* 箭头样式 */

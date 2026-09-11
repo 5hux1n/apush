@@ -216,13 +216,13 @@
                             </div>
                             <div class="log-line-3">
                                 <div class="log-flow">
-                                    <span class="flow-node" title="消息来源">
+                                    <span class="flow-node" :title="'消息来源: ' + getSourceName(log.source_id)">
                                         <i class="ri-base-station-line"></i>
                                         {{ getSourceName(log.source_id) }}
                                     </span>
                                     <i class="ri-arrow-right-s-line flow-arrow"></i>
                                     <div v-if="log.action === 'forwarded'" class="flow-target-group">
-                                        <span class="flow-node pushed" :title="'通过策略: ' + log.rule_name">
+                                        <span class="flow-node pushed" :title="'通过策略: ' + log.rule_name + ' → ' + getChannelNamesByRule(log.rule_name)">
                                             <i class="ri-send-plane-fill"></i>
                                             {{ getChannelNamesByRule(log.rule_name) }}
                                         </span>
