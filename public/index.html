@@ -1,0 +1,522 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>aPush | 控制中心</title>
+    <link href="/css/remixicon.css" rel="stylesheet">
+    <link rel="stylesheet" href="css/style.css">
+    <script src="/js/vue.global.prod.js"></script>
+</head>
+<body>
+    <div id="app" v-cloak>
+        <div :class="['toast', { show: toast.show, error: toast.type === 'error' }]">
+            <i :class="toast.type === 'error' ? 'ri-error-warning-fill' : 'ri-checkbox-circle-fill'"></i>
+            {{ toast.msg }}
+        </div>
+
+        <nav class="navbar">
+            <div class="nav-brand"><i class="ri-radar-line"></i> aPush</div>
+            <div class="nav-tabs">
+                <button :class="{ active: currentTab === 'rules' }" @click="switchTab('rules')">策略配置</button>
+                <button :class="{ active: currentTab === 'assets' }" @click="switchTab('assets')">通道来源</button>
+                <button :class="{ active: currentTab === 'records' }" @click="switchTab('records')">流转记录</button>
+                <button :class="{ active: currentTab === 'logs' }" @click="switchTab('logs')">系统日志</button>
+            </div>
+            <div class="nav-status">
+                <span class="dot"></span>
+                <span class="uptime-text" :title="'服务运行于: ' + serverUrl + '\n点击复制'" @click="copyServerUrl">Online · {{ uptimeStr }}</span>
+            </div>
+        </nav>
+
+        <!-- 登录遮罩 -->
+        <div class="login-overlay" v-if="needAuth">
+            <div class="login-card">
+                <h2><i class="ri-lock-password-line"></i> 访问验证</h2>
+                <p>请输入访问密码以继续</p>
+                <input type="password" v-model="authPassword" placeholder="输入密码" @keyup.enter="doLogin" autofocus>
+                <button class="btn btn-primary" style="width:100%;margin-top:12px" @click="doLogin">验证</button>
+                <p class="login-err" v-if="authError">{{ authError }}</p>
+            </div>
+        </div>
+
+        <main class="container">
+            <div class="loading-overlay" v-if="loading">加载中...</div>
+
+            <div v-if="currentTab === 'rules'">
+                <div class="dashboard-stats">
+                    <div class="stat-card">
+                        <div class="stat-icon bg-blue"><i class="ri-notification-3-line"></i></div>
+                        <div class="stat-info">
+                            <div class="stat-num">{{ stats.today_total || 0 }}</div>
+                            <div class="stat-label">今日接收</div>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon bg-red"><i class="ri-shield-check-line"></i></div>
+                        <div class="stat-info">
+                            <div class="stat-num">{{ stats.today_blocked || 0 }}</div>
+                            <div class="stat-label">今日拦截</div>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon bg-purple"><i class="ri-fire-line"></i></div>
+                        <div class="stat-info">
+                            <div class="stat-num" style="font-size:1rem">{{ stats.top_app || '暂无' }}</div>
+                            <div class="stat-label">最频繁来源</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="page-header">
+                    <h2>策略管理</h2>
+                    <button class="btn btn-primary" @click="handleNewRuleClick()">
+                        <i class="ri-add-line"></i> 新增规则
+                    </button>
+                </div>
+
+                <div v-if="rulesLoading" class="empty-state">加载规则中...</div>
+                <div v-else class="rules-grid">
+                    <div v-for="rule in rules" :key="rule.id" class="rule-card" :class="{ inactive: !rule.is_active }">
+                        <div class="card-header">
+                            <div class="title-area">
+                                <h3>{{ rule.name }}</h3>
+                                <div class="card-meta">
+                                    <span><i class="ri-base-station-line"></i> {{ getSourceName(rule.source_id) }}</span>
+                                    <span><i class="ri-send-plane-fill"></i> {{ countValidChannels(rule.target_channel_ids) }} 通道</span>
+                                </div>
+                            </div>
+                            <label class="switch">
+                                <input type="checkbox" v-model="rule.is_active" @change="updateRuleStatus(rule)">
+                                <span class="slider"></span>
+                            </label>
+                        </div>
+                        <div class="card-body">
+                            <div class="tags-group">
+                                <span class="tag" :class="{ 'is-regex': rule.use_regex }" v-for="kw in rule.keywords" :key="kw.id">
+                                    {{ rule.use_regex ? '/' + kw.word + '/' : kw.word }}
+                                    <i class="ri-close-line" @click="deleteKeyword(kw.id)"></i>
+                                </span>
+                                <div class="tag-input">
+                                    <input type="text"
+                                           :placeholder="rule.use_regex ? '正则' : '+ 关键词'"
+                                           v-model="rule.tempKw"
+                                           @keyup.enter="addKeyword(rule)"
+                                           @blur="addKeyword(rule)">
+                                    <i class="ri-check-line kw-confirm" @click.stop="addKeyword(rule)" v-if="rule.tempKw?.trim()"></i>
+                                </div>
+                            </div>
+                            <div class="logic-info">
+                                <span v-if="rule.use_regex" class="badge badge-regex"><i class="ri-code-s-slash-line"></i> 正则模式</span>
+                                <span v-if="rule.time_range.start" class="badge"><i class="ri-time-line"></i> {{ rule.time_range.start }}-{{ rule.time_range.end }}</span>
+                                <span class="badge logic">逻辑: {{ rule.logic_type }}</span>
+                            </div>
+                        </div>
+                        <div class="card-footer">
+                            <div class="btns">
+                                <button class="btn-icon" @click="duplicateRule(rule.id)"><i class="ri-file-copy-line"></i></button>
+                                <button class="btn-icon" @click="openRuleModal(rule)"><i class="ri-settings-4-line"></i></button>
+                                <button class="btn-icon delete" @click="deleteRule(rule.id)"><i class="ri-delete-bin-line"></i></button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div v-if="currentTab === 'assets'">
+                <div class="page-header">
+                    <h3>接收来源</h3>
+                    <button class="btn btn-primary" @click="openSourceModal()">配置来源</button>
+                </div>
+
+                <div v-if="sourcesLoading" class="empty-state">加载来源中...</div>
+                <div v-else class="asset-grid">
+                    <div v-for="src in sources" :key="src.id" class="asset-card">
+                        <div class="asset-card-row1">
+                            <div class="asset-info">
+                                <strong>{{ src.name }} <i v-if="src.auth_token" class="ri-lock-line" style="color:var(--success);font-size:0.8rem" title="已启用 Token 鉴权"></i></strong>
+                                <small>路径: {{ src.path || '(默认)' }} · {{ src.parser_mode === 'raw' ? 'Raw' : 'Auto' }}</small>
+                            </div>
+                            <div class="asset-btns">
+                                <i class="ri-settings-4-line" @click="openSourceModal(src)" title="编辑"></i>
+                                <i class="ri-delete-bin-line delete-icon" @click="deleteSource(src.id)" title="删除"></i>
+                            </div>
+                        </div>
+                        <div class="asset-row2">
+                            <div class="webhook-url-row">
+                                <code class="webhook-url">{{ serverUrl }}/api/webhook/{{ src.path || '' }}</code>
+                            </div>
+                            <i class="ri-file-copy-line copy-btn" @click.stop="copyText(serverUrl + '/api/webhook/' + (src.path || ''))" title="复制地址"></i>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="page-header" style="margin-top:35px">
+                    <h3>输出通道</h3>
+                    <button class="btn btn-primary" @click="openChannelModal()">新增通道</button>
+                </div>
+
+                <div v-if="channelsLoading" class="empty-state">加载通道中...</div>
+                <div v-else class="asset-grid">
+                    <div v-for="chan in channels" :key="chan.id" class="asset-card">
+                        <div class="asset-card-row1">
+                            <div class="asset-info">
+                                <div class="channel-label">
+                                    <i v-if="chan.type==='bark'" class="ri-smartphone-line" style="color:#007aff"></i>
+                                    <i v-if="chan.type==='wecom'" class="ri-wechat-line" style="color:#07c160"></i>
+                                    <i v-if="chan.type==='wecom-bot'" class="ri-wechat-2-line" style="color:#07c160"></i>
+                                    <i v-if="chan.type==='dingtalk'" class="ri-dingding-line" style="color:#0089ff"></i>
+                                    <i v-if="chan.type==='feishu'" class="ri-chat-3-line" style="color:#3370ff"></i>
+                                    <i v-if="chan.type==='tg'" class="ri-telegram-line" style="color:#2aabee"></i>
+                                    <i v-if="chan.type==='email'" class="ri-mail-line" style="color:#ea4335"></i>
+                                    <i v-if="chan.type==='webhook'" class="ri-link" style="color:#6435c9"></i>
+                                    <strong>{{ chan.name }}</strong>
+                                    <small class="chan-type-tag">{{ channelTypeLabel(chan.type) }}</small>
+                                </div>
+                            </div>
+                            <div class="asset-btns">
+                                <i class="ri-settings-4-line" @click="openChannelModal(chan)" title="编辑"></i>
+                                <i class="ri-delete-bin-line delete-icon" @click="deleteChannel(chan.id)" title="删除"></i>
+                            </div>
+                        </div>
+                        <div class="asset-row2">
+                        <code v-if="chan.type==='bark'" class="chan-val">{{ (chan.config.server_url || 'https://api.day.app') }}/{{ chan.config.bark_key }}</code>
+                        <code v-if="chan.type==='wecom'" class="chan-val">CorpID: {{ chan.config.corp_id }} · AgentID: {{ chan.config.agent_id }}</code>
+                        <code v-if="chan.type==='wecom-bot'" class="chan-val">{{ chan.config.webhook_url }}</code>
+                        <code v-if="chan.type==='dingtalk'" class="chan-val">{{ chan.config.webhook_url }}</code>
+                        <code v-if="chan.type==='feishu'" class="chan-val">{{ chan.config.webhook_url }}</code>
+                        <code v-if="chan.type==='tg'" class="chan-val">{{ chan.config.chat_id }}</code>
+                        <code v-if="chan.type==='email'" class="chan-val">{{ chan.config.smtp_user }} → {{ chan.config.to }}</code>
+                        <code v-if="chan.type==='webhook'" class="chan-val">{{ chan.config.webhook_url }}</code>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div v-if="currentTab === 'records'">
+                <div class="page-header">
+                    <h2>流转记录</h2>
+                    <div class="btns">
+                        <button class="btn btn-sm" @click="refreshRecords"><i class="ri-refresh-line"></i> 刷新</button>
+                        <button class="btn btn-sm btn-danger-soft" @click="clearAllLogs"><i class="ri-delete-bin-line"></i> 清空</button>
+                    </div>
+                </div>
+
+                <div class="log-container">
+                    <div v-for="log in filteredLogs" :key="log.id" class="log-item-compact">
+                        <img :src="msgIcon(log)" class="log-mini-icon" onerror="this.src='https://cdn-icons-png.flaticon.com/512/2913/2913964.png'">
+                        <div class="log-main">
+                            <div class="log-line-1">
+                                <span class="app-name">{{ log.app_name }}</span>
+                                <span class="log-time">{{ formatTime(log.created_at) }}</span>
+                            </div>
+                            <div class="log-line-2">
+                                <span class="log-title" v-if="log.title">{{ log.title }}: </span>
+                                <span class="log-body">{{ log.content }}</span>
+                            </div>
+                            <div class="log-line-3">
+                                <div class="log-flow">
+                                    <span class="flow-node" title="消息来源">
+                                        <i class="ri-base-station-line"></i>
+                                        {{ getSourceName(log.source_id) }}
+                                    </span>
+                                    <i class="ri-arrow-right-s-line flow-arrow"></i>
+                                    <div v-if="log.action === 'forwarded'" class="flow-target-group">
+                                        <span class="flow-node pushed" :title="'通过策略: ' + log.rule_name">
+                                            <i class="ri-send-plane-fill"></i>
+                                            {{ getChannelNamesByRule(log.rule_name) }}
+                                        </span>
+                                        <span class="status-pill pushed">已转发</span>
+                                    </div>
+                                    <div v-else class="flow-target-group">
+                                        <span class="flow-node blocked">
+                                            <i class="ri-shield-flash-line"></i>
+                                            系统拦截
+                                        </span>
+                                        <span class="status-pill blocked">已拦截</span>
+                                    </div>
+                                </div>
+                                <i class="ri-settings-4-line log-cfg-btn" @click.stop="openLogConfig(log)" title="配置匹配策略"></i>
+                                <i class="ri-delete-bin-7-line log-del-btn" @click.stop="deleteLog(log.id)"></i>
+                            </div>
+                        </div>
+                    </div>
+                    <div v-if="hasMoreRecords" class="load-more-row">
+                        <button class="btn btn-sm" @click="loadMoreRecords" :disabled="loadingRecords">加载更多记录...</button>
+                    </div>
+                    <div v-if="filteredLogs.length === 0" class="empty-state">暂无流转记录</div>
+                </div>
+            </div>
+
+            <div v-if="currentTab === 'logs'">
+                <div class="page-header">
+                    <h2>系统日志</h2>
+                    <div class="btns">
+                        <select v-model="sysLogLevel" @change="fetchSystemLogs" style="padding:6px 10px;border-radius:8px;border:1px solid var(--border);font-size:0.8rem">
+                            <option value="">全部</option>
+                            <option value="error">仅错误</option>
+                            <option value="warn">警告+错误</option>
+                        </select>
+                        <button class="btn btn-sm" @click="fetchSystemLogs"><i class="ri-refresh-line"></i></button>
+                    </div>
+                </div>
+
+                <div class="log-container">
+                    <div v-for="(sl, i) in systemLogs" :key="i" :class="['log-item-compact syslog-entry', sl.level]" @click="sl._expanded = !sl._expanded">
+                        <span :class="['syslog-badge', sl.level]">{{ levelLabel(sl.level) }}</span>
+                        <div class="log-main">
+                            <div class="log-line-1">
+                                <span class="syslog-msg">{{ sl.msg }}</span>
+                                <span class="log-time">{{ formatTime(sl.time) }}</span>
+                            </div>
+                            <div v-if="sl._expanded && sl.detail" class="syslog-detail-full">{{ sl.detail }}</div>
+                        </div>
+                    </div>
+                    <div v-if="systemLogs.length === 0" class="empty-state">暂无系统日志 · 系统运行正常</div>
+                </div>
+            </div>
+        </main>
+
+        <footer class="app-footer">
+            <span>Powered By <a href="https://apush.cn" target="_blank" rel="noopener">APush</a> @2026</span>
+            <span>·</span>
+            <a href="https://github.com/11195666/apush" target="_blank" rel="noopener"><i class="ri-github-fill"></i> GitHub</a>
+        </footer>
+
+        <div class="drawer-overlay" v-if="showModal">
+            <div class="drawer">
+                <div class="drawer-header">
+                    <h3>
+                        <span v-if="modalType === 'rule'">{{ editForm.id ? '编辑策略' : '新建策略' }}</span>
+                        <span v-else-if="modalType === 'channel'">{{ channelForm.id ? '编辑推送通道' : '新增推送通道' }}</span>
+                        <span v-else-if="modalType === 'source'">{{ sourceForm.id ? '编辑来源映射' : '配置数据来源' }}</span>
+                        <span v-else>配置中心</span>
+                    </h3>
+                    <i class="ri-close-line close-btn" @click="showModal = false"></i>
+                </div>
+                <div v-if="modalType === 'rule'">
+                    <div class="form-group">
+                        <label>策略名称</label>
+                        <input type="text" v-model="editForm.name" placeholder="请输入策略名称">
+                    </div>
+                    <div class="form-row" style="margin-bottom: 20px;">
+                        <div class="form-group flex-1" style="margin-bottom:0">
+                            <label>来源过滤</label>
+                            <select v-model="editForm.source_id">
+                                <option value="*">所有来源</option>
+                                <option v-for="s in sources" :value="(s.path || 'default')">{{ s.name }}</option>
+                            </select>
+                        </div>
+                        <div class="form-group flex-1" style="margin-bottom:0">
+                            <label>匹配逻辑</label>
+                            <select v-model="editForm.logic_type">
+                                <option value="AND">AND (全包含)</option>
+                                <option value="OR">OR (任一包含)</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <div class="header-with-action">
+                            <label style="margin:0">使用正则表达式</label>
+                            <label class="switch">
+                                <input type="checkbox" v-model="editForm.use_regex">
+                                <span class="slider"></span>
+                            </label>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>生效时间段</label>
+                        <div class="time-range-group">
+                            <input type="time" v-model="editForm.time_range.start">
+                            <span class="time-sep">至</span>
+                            <input type="time" v-model="editForm.time_range.end">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <div class="header-with-action">
+                            <label>数据处理 <small class="form-hint">提取 / 清洗</small></label>
+                            <button class="btn btn-action-text" @click="addRewriteRule()"><i class="ri-add-circle-line"></i> 新增清洗</button>
+                            <button class="btn btn-action-text" @click="addExtractRule()" style="margin-left:8px"><i class="ri-add-circle-line"></i> 新增提取</button>
+                        </div>
+                        <div class="empty-placeholder" v-if="editForm.rewrite_rules.length === 0">暂无规则</div>
+                        <div v-for="(rw, index) in editForm.rewrite_rules" :key="index" class="rewrite-row" style="flex-wrap:wrap; gap:6px">
+                            <div v-if="rw.source && rw.target" style="display:flex;gap:4px;width:100%;align-items:center;flex-wrap:wrap">
+                                <select v-model="rw.source" style="width:130px;font-size:0.75rem;padding:4px">
+                                    <option value="rawBody">raw_body</option>
+                                    <option value="title">title</option>
+                                    <option value="content">content</option>
+                                    <option value="appName">appName</option>
+                                    <option value="appID">appID</option>
+                                    <option value="url">url</option>
+                                    <option value="metadata">metadata.*</option>
+                                </select>
+                                <span style="font-size:0.7rem;color:var(--muted)">→</span>
+                                <select v-model="rw.target" style="width:110px;font-size:0.75rem;padding:4px">
+                                    <option value="title">title</option>
+                                    <option value="content">content</option>
+                                    <option value="appName">appName</option>
+                                    <option value="appID">appID</option>
+                                    <option value="url">url</option>
+                                </select>
+                                <input v-if="rw.source === 'metadata'" v-model="rw.metadata_key" placeholder="字段名" class="rewrite-input" style="width:100px;font-size:0.75rem">
+                                <input v-model="rw.match" placeholder="正则(可选)" class="rewrite-input" style="width:120px;font-size:0.75rem">
+                                <input v-model="rw.replace" placeholder="替换为" class="rewrite-input" style="width:100px;font-size:0.75rem">
+                            </div>
+                            <div v-else style="display:flex;gap:6px;width:100%;align-items:center">
+                                <input type="text" v-model="rw.match" placeholder="查找" class="rewrite-input">
+                                <input type="text" v-model="rw.replace" placeholder="替换" class="rewrite-input">
+                                <div class="switch-cell">
+                                    <label class="switch sm">
+                                        <input type="checkbox" v-model="rw.use_regex">
+                                        <span class="slider"></span>
+                                    </label>
+                                </div>
+                            </div>
+                            <i class="ri-delete-bin-6-line row-del-btn" @click="removeRewriteRule(index)"></i>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <div class="header-with-action">
+                            <label>推送目标 <small class="form-hint">必填项</small></label>
+                            <button class="btn btn-action-text" @click="openChannelModal()"><i class="ri-add-circle-line"></i> 新增</button>
+                        </div>
+                        <div class="bark-selector">
+                            <div v-for="chan in channels" :key="chan.id"
+                                 class="bark-chip"
+                                 :class="{ active: editForm.target_channel_ids.includes(chan.id) }"
+                                 @click="toggleChannelSelection(chan.id)">
+                                {{ chan.name }}
+                            </div>
+                        </div>
+                    </div>
+                    <div class="drawer-footer" style="display:flex;gap:10px">
+                        <button class="btn btn-primary" style="flex:1" :disabled="!isRuleFormValid" @click="saveRule">保存策略配置</button>
+                        <button class="btn btn-cancel" @click="showModal = false">取消</button>
+                    </div>
+                </div>
+                <!-- 通道编辑抽屉 -->
+                <div v-if="modalType === 'channel'">
+                    <div class="form-group">
+                        <label>通道名称</label>
+                        <input type="text" v-model="channelForm.name" placeholder="起个名字 (如: 公司微信)">
+                    </div>
+                    <div class="form-group">
+                        <label>通道类型</label>
+                        <select v-model="channelForm.type">
+                            <option value="bark">Bark (iOS 客户端)</option>
+                            <option value="wecom">企业微信 (应用消息)</option>
+                            <option value="wecom-bot">企业微信 (群机器人)</option>
+                            <option value="dingtalk">钉钉 (群机器人)</option>
+                            <option value="feishu">飞书 (群机器人)</option>
+                            <option value="tg">Telegram Bot</option>
+                            <option value="email">邮件 (SMTP)</option>
+                            <option value="webhook">自定义 Webhook</option>
+                        </select>
+                    </div>
+                    <!-- 企业微信群机器人 -->
+                    <div v-if="channelForm.type === 'wecom-bot'" style="background:#f1f3f5;padding:15px;border-radius:10px;margin-bottom:15px">
+                        <div class="form-group"><label>Webhook 地址</label><input type="text" v-model="channelForm.config.webhook_url" placeholder="https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=xxx"></div>
+                        <div class="form-group" style="margin-bottom:0"><label>消息类型</label><select v-model="channelForm.config.msgtype"><option value="text">文本 (text)</option><option value="markdown">Markdown</option></select></div>
+                    </div>
+                    <!-- 钉钉 -->
+                    <div v-if="channelForm.type === 'dingtalk'" style="background:#f1f3f5;padding:15px;border-radius:10px;margin-bottom:15px">
+                        <div class="form-group"><label>Webhook 地址</label><input type="text" v-model="channelForm.config.webhook_url" placeholder="https://oapi.dingtalk.com/robot/send?access_token=xxx"></div>
+                        <div class="form-group"><label>加签 Secret <small class="form-hint">未配置则留空</small></label><input :type="channelSecretVisible ? 'text' : 'password'" v-model="channelForm.config.secret"></div>
+                        <div class="form-group" style="margin-bottom:0"><label>消息类型</label><select v-model="channelForm.config.msgtype"><option value="markdown">Markdown</option><option value="text">文本 (text)</option></select></div>
+                    </div>
+                    <!-- 邮件 -->
+                    <div v-if="channelForm.type === 'email'" style="background:#f1f3f5;padding:15px;border-radius:10px;margin-bottom:15px">
+                        <div class="form-row"><div class="form-group flex-1"><label>SMTP 主机</label><input type="text" v-model="channelForm.config.smtp_host" placeholder="smtp.example.com"></div><div class="form-group" style="width:80px"><label>端口</label><input type="text" v-model="channelForm.config.smtp_port" placeholder="465"></div></div>
+                        <div class="form-group"><label>发送账号</label><input type="text" v-model="channelForm.config.smtp_user" placeholder="user@example.com"></div>
+                        <div class="form-group" style="display:flex;gap:8px;align-items:flex-end">
+                            <div style="flex:1"><label>密码/授权码</label><input :type="channelSecretVisible ? 'text' : 'password'" v-model="channelForm.config.smtp_pass"></div>
+                            <button class="btn btn-sm" style="margin-bottom:0" @click="toggleChannelSecret()"><i :class="channelSecretVisible ? 'ri-eye-line' : 'ri-eye-off-line'"></i></button>
+                        </div>
+                        <div class="form-group" style="margin-bottom:0"><label>收件人</label><input type="text" v-model="channelForm.config.to" placeholder="receiver@example.com"></div>
+                    </div>
+                    <!-- TG -->
+                    <div v-if="channelForm.type === 'tg'" style="background:#f1f3f5;padding:15px;border-radius:10px;margin-bottom:15px">
+                        <div class="form-group" style="margin-bottom:10px"><label>Bot Token</label><input :type="channelSecretVisible ? 'text' : 'password'" v-model="channelForm.config.bot_token" placeholder="123456:ABC-DEF1234ghikl"></div>
+                        <div class="form-group" style="margin-bottom:0;display:flex;gap:8px;align-items:flex-end">
+                            <div style="flex:1"><label>Chat ID</label><input type="text" v-model="channelForm.config.chat_id" placeholder="-1001234567890"></div>
+                            <button class="btn btn-sm" style="margin-bottom:0" @click="toggleChannelSecret()"><i :class="channelSecretVisible ? 'ri-eye-line' : 'ri-eye-off-line'"></i></button>
+                        </div>
+                    </div>
+                    <!-- 飞书 -->
+                    <div v-if="channelForm.type === 'feishu'" style="background:#f1f3f5;padding:15px;border-radius:10px;margin-bottom:15px">
+                        <div class="form-group" style="margin-bottom:0"><label>Webhook 地址</label><input type="text" v-model="channelForm.config.webhook_url" placeholder="https://open.feishu.cn/open-apis/bot/v2/hook/xxx"></div>
+                    </div>
+                    <!-- Webhook -->
+                    <div v-if="channelForm.type === 'webhook'" style="background:#f1f3f5;padding:15px;border-radius:10px;margin-bottom:15px">
+                        <div class="form-group" style="margin-bottom:0"><label>目标接收 URL (API地址)</label><input type="text" v-model="channelForm.config.webhook_url" placeholder="https://example.com/api/receive"></div>
+                    </div>
+                    <!-- Bark -->
+                    <div v-if="channelForm.type === 'bark'" style="background:#f1f3f5;padding:15px;border-radius:10px;margin-bottom:15px">
+                        <div class="form-group" style="margin-bottom:10px"><label>Bark Key</label><input type="text" v-model="channelForm.config.bark_key" placeholder="设备 Key"></div>
+                        <div class="form-group" style="margin-bottom:0"><label>服务地址 <small class="form-hint">留空默认 api.day.app</small></label><input type="text" v-model="channelForm.config.server_url" placeholder="https://api.day.app"></div>
+                    </div>
+                    <!-- 企业微信 -->
+                    <div v-if="channelForm.type === 'wecom'" style="background:#f1f3f5;padding:15px;border-radius:10px;margin-bottom:15px">
+                        <div class="form-row"><div class="form-group flex-1"><label>企业ID (CorpID)</label><input type="text" v-model="channelForm.config.corp_id"></div><div class="form-group flex-1"><label>应用ID (AgentID)</label><input type="text" v-model="channelForm.config.agent_id"></div></div>
+                        <div class="form-group" style="display:flex;gap:8px;align-items:center"><div style="flex:1"><label>应用 Secret</label><input :type="channelSecretVisible ? 'text' : 'password'" v-model="channelForm.config.secret"></div><button class="btn btn-sm" style="margin-top:20px" @click="toggleChannelSecret()"><i :class="channelSecretVisible ? 'ri-eye-line' : 'ri-eye-off-line'"></i></button></div>
+                        <div class="form-group"><label>消息类型</label><select v-model="channelForm.config.wecom_msgtype"><option value="textcard">卡片 (textcard)</option><option value="text">文本 (text)</option><option value="markdown">Markdown</option><option value="news">图文 (news)</option></select></div>
+                        <div class="form-group" style="margin-bottom:0"><label>接收人 (留空为全员)</label><input type="text" v-model="channelForm.config.user_id" placeholder="@all"></div>
+                    </div>
+                    <!-- 消息模板 -->
+                    <div v-if="['bark','wecom','wecom-bot','dingtalk','tg','email','webhook'].includes(channelForm.type)" style="background:#f1f3f5;padding:15px;border-radius:10px;margin-bottom:15px">
+                        <div class="form-group" style="margin-bottom:0">
+                            <label>消息模板 <small class="form-hint">留空使用默认模板</small></label>
+                            <textarea v-model="channelForm.template" rows="6" style="font-family:monospace;font-size:0.8rem" :placeholder="defaultTemplatePlaceholder(channelForm.type)"></textarea>
+                            <div class="template-help">
+                                <span class="template-help-toggle" @click="showTemplateHelp = !showTemplateHelp"><i :class="showTemplateHelp ? 'ri-arrow-down-s-line' : 'ri-arrow-right-s-line'"></i> 如何使用模板？</span>
+                                <div v-if="showTemplateHelp" class="template-help-body">
+                                    <p>使用 <code v-pre>{{变量名}}</code> 插入消息字段，点击下方标签快速插入：</p>
+                                    <div class="template-chips">
+                                        <span v-for="f in lastParsedFields" :key="f.key" @click="insertTemplateField(f.key)" class="tpl-chip">{{ f.key }}</span>
+                                    </div>
+                                    <p style="margin-top:6px">示例: <code v-pre>{{title}}</code> 显示消息标题，<code v-pre>{{metadata.xxx}}</code> 取原始数据中的 xxx 字段。</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="drawer-footer" style="display: flex; flex-direction: column; gap: 10px;">
+                        <div style="display:flex;gap:10px">
+                            <button class="btn btn-primary" style="flex:1" @click="saveChannel">保存通道配置</button>
+                            <button class="btn btn-cancel" @click="showModal = false">取消</button>
+                        </div>
+                        <button v-if="['wecom','wecom-bot','dingtalk','feishu','tg','email'].includes(channelForm.type)" class="btn btn-sm" style="width: 100%; background: #eee;" @click="testChannel"><i class="ri-mail-send-line"></i> 发送测试通知</button>
+                    </div>
+                </div>
+
+                <div v-if="modalType === 'source'">
+                    <div class="form-group"><label>来源名称</label><input type="text" v-model="sourceForm.name" placeholder="例如：我的 iPhone"></div>
+                    <div class="form-group">
+                        <label>URL 路径 (自定义标识) <small class="form-hint">留空=默认来源</small></label>
+                        <input type="text" v-model="sourceForm.path" placeholder="例如：iphone → POST /api/webhook/iphone">
+                        <small style="color:var(--muted)">调用时 URL 为：{{ serverUrl }}/api/webhook/{{ sourceForm.path || '(默认)' }}</small>
+                    </div>
+                    <div class="form-group">
+                        <label>解析模式</label>
+                        <select v-model="sourceForm.parser_mode">
+                            <option value="auto">auto — 自动解析 (推荐)</option>
+                            <option value="raw">raw — 全盘接收，规则引擎解析</option>
+                        </select>
+                        <small style="color:var(--muted);display:block;margin-top:6px">auto 模式自动识别 title/content/appName 等字段，其余数据保留在 metadata 中。raw 模式仅存原始请求体，由规则引擎提取字段。</small>
+                    </div>
+                    <div class="form-group">
+                        <label>鉴权 Token <small class="form-hint">留空不验证，设置后请求必须携带</small></label>
+                        <input type="text" v-model="sourceForm.auth_token" placeholder="留空则不验证调用者身份">
+                        <small style="color:var(--muted);display:block;margin-top:6px">客户端调用时通过 <code>?token=xxx</code> / POST body <code>{"token":"xxx"}</code> / Header <code>Authorization: Bearer xxx</code> 传递。</small>
+                    </div>
+                    <div class="drawer-footer" style="display:flex;gap:10px">
+                        <button class="btn btn-primary" style="flex:1" @click="saveSource">保存配置</button>
+                        <button class="btn btn-cancel" @click="showModal = false">取消</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/app.js"></script>
+</body>
+</html>

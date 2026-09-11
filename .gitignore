@@ -1,0 +1,18 @@
+# dependencies
+node_modules/
+
+# secrets & local config — never commit
+.env
+.env.local
+
+# logs
+*.log
+npm-debug.log*
+
+# OS junk
+.DS_Store
+
+# local docs, not published
+GUIDE.md
+MANUAL.md
+*.pdf

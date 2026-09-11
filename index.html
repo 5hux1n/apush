@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>aPush — 自托管推送中转站 | Self-hosted Push Relay</title>
+<style>
+:root { --bg:#f5f5f7; --card:#fff; --text:#1d1d1f; --muted:#86868b; --primary:#007aff; --primary-dark:#0056cc; --border:#d2d2d7; --radius:16px; --success:#34c759; --primary-light:rgba(0,122,255,0.1); }
+* { margin:0; padding:0; box-sizing:border-box; }
+body { font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif; background: var(--bg); color: var(--text); line-height: 1.6; }
+a { color: var(--primary); text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+/* Lang switcher */
+.lang-bar { position:absolute; top:20px; right:24px; z-index:10; display:flex; gap:6px; }
+.lang-btn { background:rgba(255,255,255,0.15); color:rgba(255,255,255,0.7); border:1px solid rgba(255,255,255,0.2); padding:5px 12px; border-radius:14px; font-size:0.78rem; cursor:pointer; font-weight:600; transition:all .2s; }
+.lang-btn.active { background:var(--primary); color:#fff; border-color:var(--primary); }
+.lang-btn:hover:not(.active) { background:rgba(255,255,255,0.25); color:#fff; }
+
+/* Hero */
+.hero { background: linear-gradient(160deg, #0a0a0a 0%, #1a1a2e 50%, #16213e 100%); color: #fff; text-align: center; padding: 80px 20px 100px; position: relative; overflow: hidden; }
+.hero::before { content:""; position:absolute; top:-100px; right:-200px; width:600px; height:600px; background: radial-gradient(circle, rgba(0,122,255,0.15) 0%, transparent 70%); border-radius:50%; }
+.hero h1 { font-size: clamp(2.4rem, 6vw, 4rem); font-weight: 800; letter-spacing: -0.02em; margin-bottom: 12px; position: relative; }
+.hero h1 span { color: var(--primary); }
+.hero .tagline { font-size: 1.15rem; color: #86868b; max-width: 580px; margin: 0 auto 32px; position: relative; }
+.hero .btn-group { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; position: relative; }
+.btn { display: inline-flex; align-items: center; gap: 8px; padding: 12px 28px; border-radius: 28px; font-weight: 600; font-size: 0.95rem; cursor: pointer; border: none; transition: all 0.2s; }
+.btn-primary { background: var(--primary); color: #fff; }
+.btn-primary:hover { background: var(--primary-dark); transform: translateY(-1px); box-shadow: 0 8px 24px rgba(0,122,255,0.3); }
+.btn-outline { background: transparent; color: #fff; border: 1.5px solid rgba(255,255,255,0.3); }
+.btn-outline:hover { border-color: #fff; transform: translateY(-1px); }
+
+/* Sections */
+.section { max-width: 1040px; margin: 0 auto; padding: 70px 24px; }
+.section h2 { font-size: 2rem; text-align: center; margin-bottom: 12px; letter-spacing: -0.01em; }
+.section .subtitle { text-align: center; color: var(--muted); margin-bottom: 48px; font-size: 1rem; }
+.features { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; }
+.feature-card { background: var(--card); padding: 28px; border-radius: var(--radius); border: 1px solid var(--border); }
+.feature-card .icon { width: 42px; height: 42px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 1.3rem; margin-bottom: 14px; color: #fff; }
+.feature-card h3 { font-size: 1.05rem; margin-bottom: 6px; }
+.feature-card p { font-size: 0.9rem; color: var(--muted); }
+.channels { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin-top: 12px; }
+.channel-tag { padding: 8px 18px; border-radius: 20px; font-size: 0.85rem; font-weight: 600; background: var(--card); border: 1px solid var(--border); }
+.flow-section { background: var(--card); border:1px solid var(--border); border-radius:var(--radius); padding:40px; margin-top:20px; }
+.flow-row { display:flex; align-items:center; justify-content:center; gap:16px; margin-bottom:20px; flex-wrap:wrap; }
+.flow-row:last-child { margin-bottom:0; }
+.flow-label { font-size:0.75rem; color:var(--muted); font-weight:600; text-transform:uppercase; letter-spacing:0.5px; text-align:center; margin-bottom:10px; }
+.flow-step { background:#f5f5f7; border:1px solid var(--border); padding:12px 20px; border-radius:12px; font-weight:600; font-size:0.88rem; text-align:center; white-space:nowrap; }
+.flow-step.engine { background:var(--primary); color:#fff; border-color:var(--primary); font-size:1rem; padding:16px 28px; }
+.flow-step.channel { font-size:0.82rem; padding:8px 16px; }
+.flow-arrow { font-size:1.5rem; color:var(--muted); }
+.flow-arrow-down { display:flex; justify-content:center; font-size:1.5rem; color:var(--muted); margin-bottom:16px; }
+.flow-channels { display:flex; flex-wrap:wrap; justify-content:center; gap:8px; }
+.code-block { background: #1d1d1f; color: #f5f5f7; border-radius: 12px; padding: 24px 28px; font-family: "SF Mono", Menlo, monospace; font-size: 0.85rem; overflow-x: auto; margin-top: 16px; max-width: 680px; margin-left: auto; margin-right: auto; line-height: 1.9; white-space: pre; }
+.code-block .c1 { color: #6c7986; }
+.code-block .c2 { color: #f5f5f7; }
+.code-block .c3 { color: #5dd8ff; }
+.use-cases { display:grid; grid-template-columns:repeat(auto-fit, minmax(300px, 1fr)); gap:20px; }
+.use-case { background:var(--card); padding:24px; border-radius:var(--radius); border:1px solid var(--border); }
+.use-case h3 { font-size:1rem; margin-bottom:8px; }
+.use-case p { font-size:0.88rem; color:var(--muted); }
+.use-case code { background:var(--primary-light); color:var(--primary); padding:1px 6px; border-radius:4px; font-size:0.8rem; }
+.compare-table { width:100%; border-collapse:collapse; font-size:0.88rem; margin-top:20px; }
+.compare-table td, .compare-table th { padding:12px 16px; border-bottom:1px solid var(--border); text-align:left; }
+.compare-table th { color:var(--muted); font-weight:600; font-size:0.8rem; }
+.compare-table .check { color:var(--success); font-weight:700; }
+.compare-table .cross { color:var(--muted); }
+.footer { border-top: 1px solid var(--border); text-align: center; padding: 32px 20px; color: var(--muted); font-size: 0.85rem; }
+.footer a { color: var(--muted); }
+.footer a:hover { color: var(--primary); }
+.footer .links { display: flex; justify-content: center; gap: 20px; margin-bottom: 8px; }
+@media (max-width: 640px) {
+  .hero { padding: 60px 20px 70px; }
+  .section { padding: 48px 16px; }
+  .flow-row { flex-direction:column; }
+  .flow-arrow { transform:rotate(90deg); }
+  .flow-section { padding:24px; }
+  .lang-bar { top:12px; right:12px; }
+}
+</style>
+</head>
+<body>
+
+<section class="hero">
+  <div class="lang-bar">
+    <button class="lang-btn" data-lang="zh" onclick="setLang('zh')">中文</button>
+    <button class="lang-btn" data-lang="en" onclick="setLang('en')">EN</button>
+  </div>
+  <h1><span>aPush</span> <span data-i18n="hero.title">— 消息推送中转站</span></h1>
+  <p class="tagline" data-i18n="hero.sub">自托管的推送通知中继服务。一次接入，多通道智能分发，数据全部自有。</p>
+  <div class="btn-group">
+    <a href="https://github.com/11195666/apush" class="btn btn-primary">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
+      GitHub
+    </a>
+    <a href="#quickstart" class="btn btn-outline" data-i18n="hero.cta">快速开始 →</a>
+  </div>
+</section>
+
+<!-- data flow -->
+<section class="section">
+  <h2 data-i18n="flow.title">一条消息，多路分发</h2>
+  <p class="subtitle" data-i18n="flow.sub">从任何来源接收消息，按策略自动转发到所有你常用的通道</p>
+  <div class="flow-section">
+    <div class="flow-label" data-i18n="flow.sources">数据来源</div>
+    <div class="flow-row">
+      <div class="flow-step">📱 <span data-i18n="flow.src1">iPhone 快捷指令</span></div>
+      <div class="flow-step">🖥️ <span data-i18n="flow.src2">服务器脚本</span></div>
+      <div class="flow-step">📊 <span data-i18n="flow.src3">监控告警</span></div>
+      <div class="flow-step">🌐 <span data-i18n="flow.src4">任意 Webhook</span></div>
+    </div>
+    <div class="flow-arrow-down">↓</div>
+    <div class="flow-row">
+      <div class="flow-step engine">aPush <span data-i18n="flow.engine">引擎</span></div>
+    </div>
+    <div class="flow-arrow-down">↓</div>
+    <div class="flow-label" data-i18n="flow.outputs">输出通道</div>
+    <div class="flow-channels">
+      <div class="flow-step channel">🔔 Bark</div>
+      <div class="flow-step channel">💼 <span data-i18n="ch.wecom">企业微信</span></div>
+      <div class="flow-step channel">🤖 <span data-i18n="ch.wecom-bot">企微机器人</span></div>
+      <div class="flow-step channel">📌 <span data-i18n="ch.dingtalk">钉钉</span></div>
+      <div class="flow-step channel">🐦 <span data-i18n="ch.feishu">飞书</span></div>
+      <div class="flow-step channel">✈️ Telegram</div>
+      <div class="flow-step channel">📧 <span data-i18n="ch.email">邮件</span></div>
+      <div class="flow-step channel">🔗 Webhook</div>
+    </div>
+  </div>
+</section>
+
+<!-- features -->
+<section class="section" style="padding-top:0;">
+  <h2 data-i18n="feat.title">核心能力</h2>
+  <p class="subtitle" data-i18n="feat.sub">不只是转发，而是智能分发</p>
+  <div class="features">
+    <div class="feature-card">
+      <div class="icon" style="background:linear-gradient(135deg,#007aff,#0055ff);">🔌</div>
+      <h3 data-i18n="feat.f1t">多来源接入</h3>
+      <p data-i18n="feat.f1d">一台服务提供多条 Webhook 路径，每个来源独立配置。GET / POST / JSON / 表单 / 纯文本全兼容，无需对齐数据格式。</p>
+    </div>
+    <div class="feature-card">
+      <div class="icon" style="background:linear-gradient(135deg,#af52de,#5e5ce6);">🧠</div>
+      <h3 data-i18n="feat.f2t">智能字段识别</h3>
+      <p data-i18n="feat.f2d">30+ 字段别名自动匹配。无论上游传 title/subject/name、content/body/message/desp，都能正确解析。</p>
+    </div>
+    <div class="feature-card">
+      <div class="icon" style="background:linear-gradient(135deg,#ff3b30,#ff0000);">🎯</div>
+      <h3 data-i18n="feat.f3t">策略引擎</h3>
+      <p data-i18n="feat.f3d">关键词 / 正则 / 时间段 / 来源过滤。支持字段提取和内容清洗，灵活决定哪些消息推送到哪些通道。</p>
+    </div>
+    <div class="feature-card">
+      <div class="icon" style="background:linear-gradient(135deg,#34c759,#30d158);">📝</div>
+      <h3 data-i18n="feat.f4t">消息模板</h3>
+      <p data-i18n="feat.f4d">每个通道独立 <code v-pre>{{变量}}</code> 模板。企业微信支持 text/markdown/textcard/news，钉钉支持 markdown/text，自由拼接推送内容。</p>
+    </div>
+    <div class="feature-card">
+      <div class="icon" style="background:linear-gradient(135deg,#ff9500,#ff9f0a);">📊</div>
+      <h3 data-i18n="feat.f5t">流转追踪</h3>
+      <p data-i18n="feat.f5d">每条消息从接收到投递全程记录。谁发的、命中哪条策略、推到哪些通道、成功还是失败，一目了然。</p>
+    </div>
+    <div class="feature-card">
+      <div class="icon" style="background:linear-gradient(135deg,#007aff,#00c6ff);">🔒</div>
+      <h3 data-i18n="feat.f6t">数据自有</h3>
+      <p data-i18n="feat.f6d">部署在你自己的服务器上，数据不过第三方。管理面板密码保护 + 暴力破解防护 + 来源 Token 鉴权。</p>
+    </div>
+  </div>
+</section>
+
+<!-- use cases -->
+<section class="section" style="padding-top:0;">
+  <h2 data-i18n="use.title">使用场景</h2>
+  <p class="subtitle" data-i18n="use.sub">不管是个人自动化还是团队监控，aPush 都能胜任</p>
+  <div class="use-cases">
+    <div class="use-case">
+      <h3 data-i18n="use.u1t">📱 iPhone 快捷指令 → 多通道通知</h3>
+      <p data-i18n="use.u1d">通过快捷指令的「获取 URL 内容」动作，GET 请求 <code>/api/webhook/iphone</code> 传入消息。aPush 自动推送到你所有配置的通道，不再只依赖 Bark。</p>
+    </div>
+    <div class="use-case">
+      <h3 data-i18n="use.u2t">🖥️ 服务器监控告警</h3>
+      <p data-i18n="use.u2d">Cron 脚本或 Zabbix/Prometheus 触发告警时，curl POST 一条 JSON 到 aPush，自动路由到企业微信 + 钉钉 + 邮件，确保关键告警不遗漏。</p>
+    </div>
+    <div class="use-case">
+      <h3 data-i18n="use.u3t">📊 业务数据实时推送</h3>
+      <p data-i18n="use.u3d">订单通知、用户注册、异常日志……后端代码中一行 HTTP 请求，就能让关键事件实时抵达你的手机、电脑、邮箱。</p>
+    </div>
+    <div class="use-case">
+      <h3 data-i18n="use.u4t">🤖 CI/CD 流水线通知</h3>
+      <p data-i18n="use.u4d">GitHub Actions / GitLab CI 在构建完成或失败时 Webhook 到 aPush，按分支/状态匹配策略，成功发 TG，失败发钉钉 + 邮件。</p>
+    </div>
+    <div class="use-case">
+      <h3 data-i18n="use.u5t">🏠 智能家居 & IoT</h3>
+      <p data-i18n="use.u5d">HomeAssistant、Node-RED 等平台触发事件时，调用 aPush 将通知推送到手机。支持 GET 传参，极低门槛。</p>
+    </div>
+    <div class="use-case">
+      <h3 data-i18n="use.u6t">💰 薅羊毛 & 抢购通知</h3>
+      <p data-i18n="use.u6d">爬虫监测到优惠/补货时即时推送。正则关键词匹配，只推你关心的商品，避免信息轰炸。</p>
+    </div>
+  </div>
+</section>
+
+<!-- channels -->
+<section class="section" style="padding-top:0;">
+  <h2 data-i18n="ch.title">支持的通道</h2>
+  <p class="subtitle" data-i18n="ch.sub">一次配置，消息直达你常用的通知平台</p>
+  <div class="channels">
+    <span class="channel-tag">🔔 Bark</span>
+    <span class="channel-tag">💼 <span data-i18n="ch.wecom">企业微信应用</span> <small>(text/markdown/textcard/news)</small></span>
+    <span class="channel-tag">🤖 <span data-i18n="ch.wecom-bot">企业微信群机器人</span> <small>(text/markdown)</small></span>
+    <span class="channel-tag">📌 <span data-i18n="ch.dingtalk">钉钉群机器人</span> <small>(text/markdown)</small></span>
+    <span class="channel-tag">🐦 <span data-i18n="ch.feishu">飞书群机器人</span></span>
+    <span class="channel-tag">✈️ Telegram Bot</span>
+    <span class="channel-tag">📧 <span data-i18n="ch.email">邮件</span> (SMTP)</span>
+    <span class="channel-tag">🔗 <span data-i18n="ch.webhook">自定义 Webhook</span></span>
+  </div>
+</section>
+
+<!-- comparison -->
+<section class="section" style="padding-top:0;">
+  <h2 data-i18n="cmp.title">为什么选择 aPush？</h2>
+  <p class="subtitle" data-i18n="cmp.sub">与同类方案相比，aPush 更灵活、更自主</p>
+  <div style="overflow-x:auto;">
+  <table class="compare-table">
+    <thead>
+      <tr><th></th><th>aPush</th><th>Server酱</th><th>PushPlus</th><th data-i18n="cmp.bark">Bark 直推</th></tr>
+    </thead>
+    <tbody>
+      <tr><td data-i18n="cmp.r1">自托管</td><td class="check">✓</td><td class="cross">✗</td><td class="cross">✗</td><td class="check">✓</td></tr>
+      <tr><td data-i18n="cmp.r2">多来源</td><td class="check">✓ <span data-i18n="cmp.v2">无限</span></td><td class="cross">✗ <span data-i18n="cmp.s2">单 Key</span></td><td class="cross">✗ <span data-i18n="cmp.p2">单 Token</span></td><td class="cross">✗ <span data-i18n="cmp.b2">单设备</span></td></tr>
+      <tr><td data-i18n="cmp.r3">多通道同时推送</td><td class="check">✓ <span data-i18n="cmp.v3">8 种</span></td><td class="cross">✗ <span data-i18n="cmp.s3">仅微信</span></td><td class="cross">✗ <span data-i18n="cmp.p3">仅微信/邮件</span></td><td class="cross">✗ <span data-i18n="cmp.b3">仅 Bark</span></td></tr>
+      <tr><td data-i18n="cmp.r4">策略过滤</td><td class="check">✓ <span data-i18n="cmp.v4">关键词/正则/时间</span></td><td class="cross">✗</td><td class="cross">✗</td><td class="cross">✗</td></tr>
+      <tr><td data-i18n="cmp.r5">消息模板</td><td class="check">✓ <span data-i18n="cmp.v5">每通道自定义</span></td><td class="cross">✗</td><td class="cross">✗</td><td class="cross">✗</td></tr>
+      <tr><td data-i18n="cmp.r6">数据隐私</td><td class="check">✓ <span data-i18n="cmp.v6">数据不出服务器</span></td><td class="cross">✗ <span data-i18n="cmp.s6">经第三方</span></td><td class="cross">✗ <span data-i18n="cmp.p6">经第三方</span></td><td class="check">✓</td></tr>
+      <tr><td data-i18n="cmp.r7">开源</td><td class="check">✓ MIT</td><td class="cross">✗</td><td class="cross">✗</td><td class="check">✓ MIT</td></tr>
+      <tr><td data-i18n="cmp.r8">免费</td><td class="check">✓ <span data-i18n="cmp.v8">无限制</span></td><td><span data-i18n="cmp.s8">有限额</span></td><td><span data-i18n="cmp.p8">有限额</span></td><td class="check">✓</td></tr>
+    </tbody>
+  </table>
+  </div>
+</section>
+
+<!-- quickstart -->
+<section class="section" style="padding-top:0;" id="quickstart">
+  <h2 data-i18n="qs.title">快速开始</h2>
+  <p class="subtitle" data-i18n="qs.sub">3 分钟完成部署</p>
+  <div class="code-block"><span class="c1"># 1. <span data-i18n="qs.step1">克隆并安装依赖</span></span>
+<span class="c2">git clone https://github.com/11195666/apush.git</span>
+<span class="c2">cd apush && npm install</span>
+
+<span class="c1"># 2. <span data-i18n="qs.step3">配置环境变量</span></span>
+<span class="c2">cp .env.example .env</span>
+<span class="c1"># <span data-i18n="qs.step3h">编辑 .env 填入数据库信息和访问密码</span></span>
+
+<span class="c1"># 3. <span data-i18n="qs.step4">初始化数据库</span></span>
+<span class="c2">node install.js</span>
+
+<span class="c1"># 4. <span data-i18n="qs.step5">启动服务</span></span>
+<span class="c2">node server.js</span>
+
+<span class="c1"># <span data-i18n="qs.open">打开浏览器访问</span></span>
+<span class="c3">http://localhost:25717</span>
+<span class="c1"># <span data-i18n="qs.tip">配置来源 → 配置通道 → 创建策略 → 开始接收消息！</span></span></div>
+</section>
+
+<footer class="footer">
+  <div class="links">
+    <a href="https://github.com/11195666/apush">GitHub</a>
+    <a href="https://apush.cn">Website</a>
+  </div>
+  <p>Powered By aPush @2026 · MIT License</p>
+</footer>
+
+<script>
+// ---- i18n ----
+const I18N = {
+  zh: {
+    'hero.title': '— 消息推送中转站',
+    'hero.sub': '自托管的推送通知中继服务。一次接入，多通道智能分发，数据全部自有。',
+    'hero.cta': '快速开始 →',
+    'flow.title': '一条消息，多路分发',
+    'flow.sub': '从任何来源接收消息，按策略自动转发到所有你常用的通道',
+    'flow.sources': '数据来源',
+    'flow.src1': 'iPhone 快捷指令',
+    'flow.src2': '服务器脚本',
+    'flow.src3': '监控告警',
+    'flow.src4': '任意 Webhook',
+    'flow.engine': '引擎',
+    'flow.outputs': '输出通道',
+    'feat.title': '核心能力',
+    'feat.sub': '不只是转发，而是智能分发',
+    'feat.f1t': '多来源接入', 'feat.f1d': '一台服务提供多条 Webhook 路径，每个来源独立配置。GET / POST / JSON / 表单 / 纯文本全兼容，无需对齐数据格式。',
+    'feat.f2t': '智能字段识别', 'feat.f2d': '30+ 字段别名自动匹配。无论上游传 title/subject/name、content/body/message/desp，都能正确解析。',
+    'feat.f3t': '策略引擎',     'feat.f3d': '关键词 / 正则 / 时间段 / 来源过滤。支持字段提取和内容清洗，灵活决定哪些消息推送到哪些通道。',
+    'feat.f4t': '消息模板',     'feat.f4d': '每个通道独立 {{变量}} 模板。企业微信支持 text/markdown/textcard/news，钉钉支持 markdown/text，自由拼接推送内容。',
+    'feat.f5t': '流转追踪',     'feat.f5d': '每条消息从接收到投递全程记录。谁发的、命中哪条策略、推到哪些通道、成功还是失败，一目了然。',
+    'feat.f6t': '数据自有',     'feat.f6d': '部署在你自己的服务器上，数据不过第三方。管理面板密码保护 + 暴力破解防护 + 来源 Token 鉴权。',
+    'use.title': '使用场景',
+    'use.sub': '不管是个人自动化还是团队监控，aPush 都能胜任',
+    'use.u1t': '📱 iPhone 快捷指令 → 多通道通知', 'use.u1d': '通过快捷指令的「获取 URL 内容」动作，GET 请求 /api/webhook/iphone 传入消息。aPush 自动推送到你所有配置的通道，不再只依赖 Bark。',
+    'use.u2t': '🖥️ 服务器监控告警', 'use.u2d': 'Cron 脚本或 Zabbix/Prometheus 触发告警时，curl POST 一条 JSON 到 aPush，自动路由到企业微信 + 钉钉 + 邮件，确保关键告警不遗漏。',
+    'use.u3t': '📊 业务数据实时推送', 'use.u3d': '订单通知、用户注册、异常日志……后端代码中一行 HTTP 请求，就能让关键事件实时抵达你的手机、电脑、邮箱。',
+    'use.u4t': '🤖 CI/CD 流水线通知', 'use.u4d': 'GitHub Actions / GitLab CI 在构建完成或失败时 Webhook 到 aPush，按分支/状态匹配策略，成功发 TG，失败发钉钉 + 邮件。',
+    'use.u5t': '🏠 智能家居 & IoT', 'use.u5d': 'HomeAssistant、Node-RED 等平台触发事件时，调用 aPush 将通知推送到手机。支持 GET 传参，极低门槛。',
+    'use.u6t': '💰 薅羊毛 & 抢购通知', 'use.u6d': '爬虫监测到优惠/补货时即时推送。正则关键词匹配，只推你关心的商品，避免信息轰炸。',
+    'ch.title': '支持的通道', 'ch.sub': '一次配置，消息直达你常用的通知平台',
+    'ch.wecom': '企业微信应用', 'ch.wecom-bot': '企业微信群机器人', 'ch.dingtalk': '钉钉群机器人', 'ch.feishu': '飞书群机器人', 'ch.email': '邮件', 'ch.webhook': '自定义 Webhook',
+    'cmp.title': '为什么选择 aPush？', 'cmp.sub': '与同类方案相比，aPush 更灵活、更自主',
+    'cmp.bark': 'Bark 直推',
+    'cmp.r1':'自托管','cmp.r2':'多来源','cmp.r3':'多通道同时推送','cmp.r4':'策略过滤','cmp.r5':'消息模板','cmp.r6':'数据隐私','cmp.r7':'开源','cmp.r8':'免费',
+    'cmp.v2':'无限','cmp.s2':'单 Key','cmp.p2':'单 Token','cmp.b2':'单设备',
+    'cmp.v3':'8 种','cmp.s3':'仅微信','cmp.p3':'仅微信/邮件','cmp.b3':'仅 Bark',
+    'cmp.v4':'关键词/正则/时间',
+    'cmp.v5':'每通道自定义',
+    'cmp.v6':'数据不出服务器','cmp.s6':'经第三方','cmp.p6':'经第三方',
+    'cmp.v8':'无限制','cmp.s8':'有限额','cmp.p8':'有限额',
+    'qs.title':'快速开始','qs.sub':'3 分钟完成部署',
+    'qs.step1':'克隆并安装依赖','qs.step3':'配置环境变量','qs.step3h':'编辑 .env 填入数据库信息和访问密码','qs.step4':'初始化数据库','qs.step5':'启动服务',
+    'qs.open':'打开浏览器访问','qs.tip':'配置来源 → 配置通道 → 创建策略 → 开始接收消息！',
+  },
+  en: {
+    'hero.title': '— Self-hosted Push Relay',
+    'hero.sub': 'Route notifications from anywhere to everywhere. Self-hosted, multi-channel, fully private.',
+    'hero.cta': 'Get Started →',
+    'flow.title': 'One Message, Every Channel',
+    'flow.sub': 'Receive from any source, auto-forward to all your notification platforms via configurable policies',
+    'flow.sources': 'Data Sources',
+    'flow.src1': 'iPhone Shortcuts',
+    'flow.src2': 'Server Scripts',
+    'flow.src3': 'Monitoring Alerts',
+    'flow.src4': 'Any Webhook',
+    'flow.engine': 'Engine',
+    'flow.outputs': 'Output Channels',
+    'feat.title': 'Core Capabilities',
+    'feat.sub': 'Not just forwarding — intelligent routing',
+    'feat.f1t': 'Multi-Source', 'feat.f1d': 'One server, multiple webhook paths. GET/POST/JSON/form/plain text — all supported with no format alignment needed.',
+    'feat.f2t': 'Smart Field Parsing', 'feat.f2d': '30+ field alias matching. Whether upstream sends title/subject/name or content/body/message/desp, everything resolves correctly.',
+    'feat.f3t': 'Policy Engine',     'feat.f3d': 'Keywords / regex / time range / source filter. Extract and clean fields to decide which messages go to which channels.',
+    'feat.f4t': 'Message Templates', 'feat.f4d': 'Per-channel {{variable}} templates. WeCom supports text/markdown/textcard/news; DingTalk supports markdown/text. Compose freely.',
+    'feat.f5t': 'Flow Tracking',     'feat.f5d': 'Complete lifecycle: receive → match → deliver. See who sent it, which policy matched, which channels it went to, and whether it succeeded.',
+    'feat.f6t': 'Data Sovereignty',  'feat.f6d': 'Runs on your own server. Data never touches third parties. Admin panel password + brute-force protection + source token auth.',
+    'use.title': 'Use Cases',
+    'use.sub': 'From personal automation to team monitoring, aPush handles it all',
+    'use.u1t': '📱 iPhone Shortcuts → Multi-Channel', 'use.u1d': 'Use the "Get Contents of URL" action in Shortcuts to GET /api/webhook/iphone. aPush forwards to all your configured channels — no longer limited to Bark.',
+    'use.u2t': '🖥️ Server Monitoring Alerts', 'use.u2d': 'When Cron/Zabbix/Prometheus triggers an alert, curl a JSON POST to aPush. Auto-routes to WeCom + DingTalk + Email — no critical alert missed.',
+    'use.u3t': '📊 Real-time Business Events', 'use.u3d': 'Order notifications, user signups, error logs — one HTTP call from your backend, and key events reach your phone, desktop, and inbox instantly.',
+    'use.u4t': '🤖 CI/CD Pipeline Notifications', 'use.u4d': 'GitHub Actions / GitLab CI webhooks to aPush on build success or failure. Match by branch/status — success goes to TG, failure to DingTalk + Email.',
+    'use.u5t': '🏠 Smart Home & IoT', 'use.u5d': 'HomeAssistant, Node-RED, and other platforms trigger aPush to send notifications to your phone. GET params supported — zero friction.',
+    'use.u6t': '💰 Deal & Restock Alerts', 'use.u6d': 'Instant push when your crawler detects a deal or restock. Regex keyword matching ensures you only see what you care about — no notification spam.',
+    'ch.title': 'Supported Channels', 'ch.sub': 'Configure once — messages arrive where you already are',
+    'ch.wecom': 'WeCom App', 'ch.wecom-bot': 'WeCom Bot', 'ch.dingtalk': 'DingTalk Bot', 'ch.feishu': 'Feishu Bot', 'ch.email': 'Email', 'ch.webhook': 'Custom Webhook',
+    'cmp.title': 'Why aPush?', 'cmp.sub': 'More flexible and self-sovereign than alternatives',
+    'cmp.bark': 'Bark Direct',
+    'cmp.r1':'Self-hosted','cmp.r2':'Multi-source','cmp.r3':'Multi-channel','cmp.r4':'Policy filter','cmp.r5':'Templates','cmp.r6':'Data privacy','cmp.r7':'Open source','cmp.r8':'Free',
+    'cmp.v2':'Unlimited','cmp.s2':'Single key','cmp.p2':'Single token','cmp.b2':'Single device',
+    'cmp.v3':'8 types','cmp.s3':'WeChat only','cmp.p3':'WeChat/email','cmp.b3':'Bark only',
+    'cmp.v4':'Keywords/regex/time',
+    'cmp.v5':'Per-channel custom',
+    'cmp.v6':'Data stays on server','cmp.s6':'Third-party','cmp.p6':'Third-party',
+    'cmp.v8':'Unlimited','cmp.s8':'Quota limits','cmp.p8':'Quota limits',
+    'qs.title':'Quick Start','qs.sub':'Deploy in 3 minutes',
+    'qs.step1':'Clone & install dependencies','qs.step3':'Configure environment','qs.step3h':'Edit .env — fill in DB credentials and access password','qs.step4':'Initialize database','qs.step5':'Start the server',
+    'qs.open':'Open your browser','qs.tip':'Add sources → Add channels → Create policies → Start receiving!',
+  }
+};
+
+function setLang(lang) {
+  localStorage.setItem('apush_website_lang', lang);
+  document.querySelectorAll('.lang-btn').forEach(b => b.classList.toggle('active', b.dataset.lang === lang));
+  const dict = I18N[lang] || I18N.zh;
+  document.querySelectorAll('[data-i18n]').forEach(el => {
+    const key = el.dataset.i18n;
+    if (dict[key] !== undefined) el.textContent = dict[key];
+  });
+}
+
+(function init() {
+  const saved = localStorage.getItem('apush_website_lang');
+  const browserLang = (navigator.language || '').startsWith('zh') ? 'zh' : 'en';
+  setLang(saved || browserLang);
+})();
+</script>
+</body>
+</html>
