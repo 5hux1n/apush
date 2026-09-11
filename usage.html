@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>aPush 使用指南</title>
+<meta name="description" content="aPush 自托管推送中转站的完整使用说明：安装部署、Webhook 接入、渠道配置、策略模板与常见问题。">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='0.9em' font-size='90'>📡</text></svg>">
+<style>
+:root { --primary:#007aff; --primary-dark:#0062cc; --text:#1d1d1f; --muted:#6e6e73; --bg:#f5f5f7; --card:#fff; --line:#e5e5ea; --code-bg:#1c1c1e; --code-fg:#e5e5ea; }
+* { margin:0; padding:0; box-sizing:border-box; }
+body { font-family:-apple-system,BlinkMacSystemFont,"SF Pro SC","PingFang SC","Helvetica Neue",sans-serif; background:var(--bg); color:var(--text); line-height:1.75; }
+.topbar { position:sticky; top:0; z-index:100; background:rgba(255,255,255,.82); backdrop-filter:blur(20px); border-bottom:1px solid var(--line); }
+.topbar-in { max-width:1080px; margin:0 auto; padding:12px 20px; display:flex; align-items:center; gap:14px; }
+.logo { font-weight:800; font-size:1.05rem; color:var(--text); text-decoration:none; }
+.logo b { color:var(--primary); }
+.topbar .spacer { flex:1; }
+.topbar a.nav { color:var(--muted); text-decoration:none; font-size:.88rem; padding:6px 12px; border-radius:8px; }
+.topbar a.nav:hover { color:var(--primary); background:rgba(0,122,255,.08); }
+.topbar a.nav.pill { background:var(--primary); color:#fff; }
+.topbar a.nav.pill:hover { background:var(--primary-dark); }
+.layout { max-width:1080px; margin:0 auto; padding:32px 20px 80px; display:grid; grid-template-columns:220px 1fr; gap:36px; }
+@media (max-width:900px){ .layout{grid-template-columns:1fr;} .toc{position:static!important;} }
+.toc { position:sticky; top:76px; align-self:start; font-size:.86rem; }
+.toc h4 { font-size:.75rem; text-transform:uppercase; letter-spacing:.05em; color:var(--muted); margin-bottom:10px; }
+.toc a { display:block; color:var(--muted); text-decoration:none; padding:5px 10px; border-left:2px solid transparent; border-radius:0 6px 6px 0; }
+.toc a:hover { color:var(--primary); border-left-color:var(--primary); background:rgba(0,122,255,.06); }
+main { min-width:0; }
+.hero-card { background:linear-gradient(135deg,#0a84ff,#0055b3); color:#fff; border-radius:18px; padding:34px 36px; margin-bottom:34px; }
+.hero-card h1 { font-size:1.7rem; margin-bottom:8px; }
+.hero-card p { opacity:.92; font-size:.95rem; }
+section { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:26px 30px; margin-bottom:22px; scroll-margin-top:80px; }
+h2 { font-size:1.22rem; margin-bottom:14px; display:flex; align-items:center; gap:10px; }
+h2 .num { display:inline-flex; align-items:center; justify-content:center; width:26px; height:26px; border-radius:8px; background:rgba(0,122,255,.12); color:var(--primary); font-size:.82rem; font-weight:700; flex:none; }
+h3 { font-size:1rem; margin:18px 0 8px; }
+p, li { font-size:.93rem; color:#3a3a3c; }
+ul, ol { padding-left:22px; margin:8px 0; }
+li { margin:4px 0; }
+code { background:rgba(0,122,255,.08); color:var(--primary-dark); padding:1px 6px; border-radius:5px; font-size:.84em; font-family:"SF Mono",Menlo,Consolas,monospace; }
+pre { background:var(--code-bg); color:var(--code-fg); padding:16px 18px; border-radius:11px; overflow-x:auto; margin:12px 0; font-size:.83rem; line-height:1.6; }
+pre code { background:none; color:inherit; padding:0; }
+table { width:100%; border-collapse:collapse; margin:12px 0; font-size:.86rem; }
+th, td { border:1px solid var(--line); padding:8px 12px; text-align:left; vertical-align:top; }
+th { background:#fafafa; font-weight:600; }
+td code { white-space:nowrap; }
+.warn { border-left:4px solid #ff9f0a; background:rgba(255,159,10,.08); padding:12px 16px; border-radius:0 10px 10px 0; margin:12px 0; font-size:.88rem; }
+.tip { border-left:4px solid var(--primary); background:rgba(0,122,255,.06); padding:12px 16px; border-radius:0 10px 10px 0; margin:12px 0; font-size:.88rem; }
+.flow { display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin:12px 0; font-size:.82rem; font-weight:600; }
+.flow span { background:rgba(0,122,255,.1); color:var(--primary-dark); padding:6px 12px; border-radius:9px; }
+.flow i { color:var(--muted); font-style:normal; }
+footer { text-align:center; color:var(--muted); font-size:.82rem; padding:30px 0 50px; }
+footer a { color:var(--primary); text-decoration:none; }
+</style>
+</head>
+<body>
+
+<nav class="topbar"><div class="topbar-in">
+  <a class="logo" href="./">📡 <b>aPush</b> 使用指南</a>
+  <span class="spacer"></span>
+  <a class="nav" href="./">← 首页</a>
+  <a class="nav" href="https://github.com/5hux1n/apush" target="_blank">GitHub</a>
+  <a class="nav pill" href="https://apush.me" target="_blank">🧪 在线演示</a>
+</div></nav>
+
+<div class="layout">
+<aside class="toc">
+  <h4>目录</h4>
+  <a href="#s1">1 · 工作原理</a>
+  <a href="#s2">2 · 安装部署</a>
+  <a href="#s3">3 · 登录面板</a>
+  <a href="#s4">4 · 核心概念</a>
+  <a href="#s5">5 · Webhook 接入</a>
+  <a href="#s6">6 · 渠道速查</a>
+  <a href="#s7">7 · 策略与模板</a>
+  <a href="#s8">8 · 典型示例</a>
+  <a href="#s9">9 · FAQ</a>
+</aside>
+<main>
+
+<div class="hero-card">
+  <h1>aPush 使用指南</h1>
+  <p>自托管推送中转站 · 从任意入口，抵达任意终端。本指南覆盖安装、接入、配置与排障全流程。</p>
+</div>
+
+<section id="s1">
+<h2><span class="num">1</span>工作原理</h2>
+<div class="flow">
+  <span>来源 Source</span><i>→</i><span>字段解析</span><i>→</i><span>策略匹配</span><i>→</i><span>字段改写</span><i>→</i><span>模板渲染</span><i>→</i><span>渠道投递 ×N</span>
+</div>
+<ul>
+  <li><b>解析</b>：自动识别 title / content / appName / url 等字段的几十种常见别名（<code>subject</code>、<code>body</code>、<code>msg</code>、<code>desp</code>…），无法识别的字段全部归入 <code>metadata</code>，模板里用 <code>{{metadata.xxx}}</code> 取用。</li>
+  <li><b>匹配</b>：按策略条件（来源、关键词、正则、时间段、星期）判断放行或拦截；多条策略命中时取<b>第一条</b>。</li>
+  <li><b>投递</b>：命中后向策略勾选的<b>每个渠道</b>各推一份，每次投递独立记录成败与耗时，流转记录页可查。</li>
+</ul>
+</section>
+
+<section id="s2">
+<h2><span class="num">2</span>安装部署</h2>
+<p>前置要求：<b>Node.js ≥ 18</b>、<b>MySQL 8.x</b></p>
+<pre><code>git clone https://github.com/5hux1n/apush.git
+cd apush
+npm install
+cp .env.example .env      # 编辑数据库等配置
+node install.js           # 初始化向导：建库建表、设置面板密码
+npm start                 # 启动，默认端口 25717</code></pre>
+<table>
+<tr><th>.env 变量</th><th>默认</th><th>说明</th></tr>
+<tr><td><code>PORT</code></td><td>25717</td><td>服务端口</td></tr>
+<tr><td><code>AUTH_PASSWORD</code></td><td>空</td><td><b>管理面板密码</b>。留空 = 不设防，公网部署务必设置</td></tr>
+<tr><td><code>DB_HOST</code> / <code>DB_PORT</code></td><td>127.0.0.1 : 3306</td><td>MySQL 地址</td></tr>
+<tr><td><code>DB_NAME</code> / <code>DB_USER</code> / <code>DB_PASS</code></td><td>—</td><td>库名与账号</td></tr>
+<tr><td><code>BARK_SERVER</code></td><td>api.day.app</td><td>全局 Bark 服务器（渠道里留空时用它）</td></tr>
+</table>
+<h3>生产守护与反代</h3>
+<pre><code>npm i -g pm2
+pm2 start server.js --name apush && pm2 save</code></pre>
+<p>Nginx / Caddy / frp 反代 <code>443 → 127.0.0.1:25717</code> 即可，无特殊 header 要求；注意把 <code>proxy_read_timeout</code> 调到 ≥ 60s（界面用长轮询，太短会频繁重连）。</p>
+</section>
+
+<section id="s3">
+<h2><span class="num">3</span>登录管理面板</h2>
+<p>浏览器打开 <code>http://&lt;服务器IP&gt;:25717/</code>：</p>
+<ul>
+  <li>设置了 <code>AUTH_PASSWORD</code> 时输入密码登录。密码只用于换取<b>会话令牌</b>（服务端内存，24h 有效），后续请求经 <code>x-auth-token</code> 头携带，不重复传输密码。</li>
+  <li>连续错 5 次锁定 10 分钟（防爆破）。</li>
+  <li>四个菜单：<b>策略配置</b> · <b>通道来源</b> · <b>流转记录</b> · <b>系统日志</b>。</li>
+</ul>
+</section>
+
+<section id="s4">
+<h2><span class="num">4</span>四个核心概念</h2>
+<table>
+<tr><th>概念</th><th>作用</th><th>关键字段</th></tr>
+<tr><td><b>来源 Source</b></td><td>消息入口，决定 Webhook 路径与解析方式</td><td><code>path</code>、<code>auth_token</code>、<code>parser_mode</code>（auto/raw）</td></tr>
+<tr><td><b>渠道 Channel</b></td><td>消息出口，8 种类型</td><td><code>name</code>、<code>type</code>、<code>config</code>、<code>template</code></td></tr>
+<tr><td><b>策略 Rule</b></td><td>哪些消息 → 发到哪些渠道 → 长什么样</td><td>关键词、时间窗、目标渠道、渠道模板、rewrite</td></tr>
+<tr><td><b>模板 Template</b></td><td>控制最终推送排版</td><td><code>{{变量}}</code> 占位符</td></tr>
+</table>
+<div class="warn">⚠️ 没有<b>启用中</b>的策略命中时，消息会被直接拦截（blocked），一条也不发。新装完请<b>先建策略再测试</b>。</div>
+</section>
+
+<section id="s5">
+<h2><span class="num">5</span>接收消息（Webhook 接口）</h2>
+<p>统一入口（GET / POST 均可，自动处理 CORS 预检）：<code>/api/webhook</code>（默认来源）或 <code>/api/webhook/&lt;path&gt;</code></p>
+<pre><code># ① Query 参数（iPhone 快捷指令 GET 场景）
+curl "http://IP:25717/api/webhook/iphone?title=你好&content=正文&appName=测试&token=***"
+
+# ② JSON body（脚本 / 服务告警场景）
+curl -X POST http://IP:25717/api/webhook \
+  -H "Content-Type: application/json" \
+  -d '{"title":"磁盘告警","content":"使用率 92%","appName":"Prometheus"}'
+
+# ③ 纯文本（来源 parser_mode = raw 时，整段进 message）
+curl -X POST http://IP:25717/api/webhook/nas -H "Content-Type: text/plain" -d "任意格式原文"</code></pre>
+<p><b>鉴权</b>：来源设置了 <code>auth_token</code> 时，三处任选：<code>body.token</code> → <code>?token=***</code> → <code>Authorization: Bearer &lt;token&gt;</code>（按此优先级）。不符返回 <code>403 token 无效</code>。</p>
+<p><b>响应</b>：立即返回 <code>{success, matched_rule, action, delivered, failed, deliveries[]}</code> —— 投递明细同步可见，无需查库。</p>
+</section>
+
+<section id="s6">
+<h2><span class="num">6</span>渠道配置速查</h2>
+<table>
+<tr><th>类型</th><th>config 字段</th><th>要点</th></tr>
+<tr><td><code>bark</code></td><td><code>server?</code>, <code>bark_key</code></td><td>server 留空用 <code>BARK_SERVER</code>；可配 JSON 模板扩展 group / sound / icon / level</td></tr>
+<tr><td><code>wecom</code> 企微应用</td><td><code>corpid</code>, <code>corpsecret</code>, <code>agentid</code>, <code>touser?</code>, <code>wecom_msgtype</code></td><td><b>必配可信企业 IP 白名单</b>，否则 60020；msgtype：text / markdown / textcard / news</td></tr>
+<tr><td><code>wecom-bot</code> 群机器人</td><td><code>webhook_key</code>, <code>wecom_msgtype</code></td><td>群 Webhook URL 中 <code>key=</code> 后面那段</td></tr>
+<tr><td><code>dingtalk</code></td><td><code>webhook_token</code>, <code>secret?</code>, <code>atMobiles?</code>, <code>msgtype</code></td><td>机器人开「加签」才填 secret（自动签名）；开「关键词」则消息必须含关键词</td></tr>
+<tr><td><code>feishu</code></td><td><code>webhook_url</code>, <code>secret?</code></td><td>飞书群自定义机器人</td></tr>
+<tr><td><code>tg</code></td><td><code>bot_token</code>, <code>chat_id</code></td><td>chat_id 支持 <code>@username</code> 或数字 ID</td></tr>
+<tr><td><code>email</code></td><td><code>host</code>, <code>port</code>, <code>secure</code>, <code>auth.user</code>, <code>auth.pass</code>, <code>to</code></td><td>465 → secure:true；587 → false（自动 STARTTLS）；pass 用<b>授权码</b>非登录密码</td></tr>
+<tr><td><code>webhook</code> 下游</td><td><code>url</code>, <code>method?</code>, <code>headers?</code></td><td>把消息按模板 POST 给任何系统（n8n / 自建 API 等）</td></tr>
+</table>
+<div class="tip">💡 渠道卡片的「测试」按钮会真实发一条样例消息（占配额，钉钉/企微注意频控）。想零副作用预览所有渠道的渲染结果，去演示站用「🧪 模拟推送」。</div>
+</section>
+
+<section id="s7">
+<h2><span class="num">7</span>策略与模板</h2>
+<h3>匹配条件（全部为「与」关系）</h3>
+<ul>
+  <li>关键词：多个词按 <b>AND / OR</b> 组合；勾选正则后每个词按正则匹配（对 <code>appName + title + content</code> 拼接文本做不区分大小写匹配）</li>
+  <li>时间窗（HH:MM~HH:MM）+ 生效星期（0~6）</li>
+  <li>来源限定：<code>*</code> 全部来源，或指定来源</li>
+</ul>
+<h3>rewrite 规则（提取 / 清洗）</h3>
+<pre><code>[{ "source": "message", "match": ".*?(\\d{6}).*", "replace": "$1",
+   "target": "message", "use_regex": true, "use_regex_flags": "is" }]</code></pre>
+<p>含义：从正文提取 6 位数字并只把数字写回 <code>message</code> —— 配合 Bark 模板实现「验证码短信只推 6 位码」。字段可填内置名（<code>title/content/message/url/metadata.xxx</code>），也可填解析前的原始 key。多条规则按序执行。</p>
+<h3>模板变量与优先级</h3>
+<p><code>{{title}}</code> <code>{{content}}</code> <code>{{message}}</code>（content 别名） <code>{{app_name}}</code> <code>{{url}}</code> <code>{{source}}</code> <code>{{time}}</code> <code>{{metadata.任意字段}}</code></p>
+<p>渲染优先级：<b>策略渠道模板覆盖 → 渠道自身模板 → 内置默认模板</b>（按渠道类型与 msgtype 自动选择版式）。</p>
+</section>
+
+<section id="s8">
+<h2><span class="num">8</span>典型接入示例</h2>
+<h3>📱 iPhone 短信验证码 → Bark 只推 6 位码</h3>
+<ol>
+  <li>来源：<code>path=iphone</code>，auto 解析，设 <code>auth_token</code></li>
+  <li>渠道：Bark（App 内复制 key）</li>
+  <li>策略：来源限定 iphone + 关键词「验证码」→ 目标 Bark；rewrite 提取 6 位数字；Bark 渠道模板（JSON）：
+<pre><code>{"title":"🔐 {{app_name}} 验证码","body":"{{content}}","group":"验证码",
+ "sound":"bell","level":"timeSensitive","isArchive":1}</code></pre></li>
+  <li>快捷指令：自动化触发「收到包含"验证码"的信息」→ 动作「获取 URL 内容」：
+<pre><code>http://IP:25717/api/webhook/iphone?title=【{{文本}}】&amp;content={{文本}}&amp;appName=信息&amp;token=***</code></pre></li>
+</ol>
+<h3>🖥️ 服务器告警 → 钉钉 + Telegram 双发</h3>
+<p>建两条渠道 + 一条策略：来源 <code>*</code>、关键词「告警」（或正则 <code>deploy|部署|构建</code> 做 CI 通知），勾选两个渠道即可分流。</p>
+<h3>🔗 转发到下游系统</h3>
+<p>渠道类型选 Webhook，模板写任意 JSON 字符串，收到的消息就会按该格式 POST 给 n8n / 自建 API / 任何支持 Webhook 的平台。</p>
+</section>
+
+<section id="s9">
+<h2><span class="num">9</span>常见问题 FAQ</h2>
+<ul>
+  <li><b>界面显示「离线」？</b> 长轮询断了。检查服务存活与反代超时（<code>proxy_read_timeout ≥ 60s</code>）。</li>
+  <li><b>消息全被拦截？</b> 最常见：没有启用中的策略，或关键词/来源/时间窗不匹配。到「流转记录」点开消息看明细，或在演示站用「🧪 模拟推送」重放观察匹配追踪。</li>
+  <li><b>企业微信收不到？</b> 应用「可信企业 IP」白名单必配；<code>60020</code> 即 IP 不在白名单。</li>
+  <li><b>钉钉 310000？</b> 安全设置要对齐：加签 → 渠道填 <code>secret</code>；关键词 → 消息必须含该词。</li>
+  <li><b>TG 429/430？</b> 限流，降低频率（默认约 20 条/分钟）。</li>
+  <li><b>忘记密码？</b> <code>AUTH_PASSWORD</code> 是唯一凭据，改 <code>.env</code> 重启即可，数据库不存密码。</li>
+</ul>
+<div class="tip">🧪 想先零风险体验全部功能？演示站 <a href="https://apush.me">apush.me</a>：免注册、全站只读、内置模拟推送沙箱。</div>
+</section>
+
+</main>
+</div>
+
+<footer>
+  aPush · 自托管推送中转站 · <a href="./">首页</a> · <a href="https://github.com/5hux1n/apush">GitHub</a> · <a href="https://apush.me">Demo</a>
+</footer>
+</body>
+</html>

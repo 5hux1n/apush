@@ -46,7 +46,7 @@ const RULES = [
     },
     {
         id: 3, name: '部署与 CI 通知', source_id: '*',
-        target_channel_ids: [2, 4], channel_templates: {},
+        target_channel_ids: [2, 4, 5], channel_templates: {},
         time_range: {}, active_days: '1,2,3,4,5,6,0',
         logic_type: 'OR', use_regex: 1, rewrite_rules: [], is_active: 1,
         keywords: [{ id: 15, word: 'deploy|部署|构建|build', is_active: 1 }],
@@ -73,10 +73,11 @@ const RULES = [
 
 // ---- 消息流水（offset_min = 距"现在"多少分钟前）----
 const MESSAGES = [
+    { off: 8,    src: 'nas', app: 'NAS',         appid: 'Synology',              title: '备份网关切换完成', c: '备用网关 failover 完成，同步链路恢复正常。', rule: 'NAS 系统告警', act: 'forwarded', dl: [{ch:1,dur:58},{ch:3,dur:890}] },
     { off: 3,    src: 'iphone', app: '信息',        appid: 'com.apple.MobileSMS',   title: '【支付宝】登录验证码 382915', c: '您正在支付宝登录，验证码 382915，5 分钟内有效，请勿泄露。', rule: '短信验证码直达', act: 'forwarded', dl: [{ch:1,dur:86}] },
     { off: 17,   src: 'nas', app: 'NAS',         appid: 'Synology',              title: '硬盘 2 SMART 预警', c: 'Disk 2 (ST4000) 出现 3 个重映射扇区，建议尽快备份。', rule: 'NAS 系统告警', act: 'forwarded', dl: [{ch:1,dur:74},{ch:3,dur:1204,err:'钉钉机器人签名校验失败，请检查密钥配置',st:'failed'}] },
     { off: 41,   src: 'iphone', app: '信息',        appid: 'com.apple.MobileSMS',   title: '【微信】验证码 662148', c: '662148 是您的微信登录验证码，5 分钟内有效。如非本人操作请忽略。', rule: '短信验证码直达', act: 'forwarded', dl: [{ch:1,dur:65}] },
-    { off: 58,   src: 'default', app: 'GitHub Actions', appid: 'github-actions',     title: 'apush@main 部署成功', c: 'Run #284 成功 (2m14s)，已发布 v1.0.0。', rule: '部署与 CI 通知', act: 'forwarded', dl: [{ch:2,dur:310},{ch:4,dur:980}] },
+    { off: 58,   src: 'default', app: 'GitHub Actions', appid: 'github-actions',     title: 'apush@main 部署成功', c: 'Run #284 成功 (2m14s)，已发布 v1.0.0。', rule: '部署与 CI 通知', act: 'forwarded', dl: [{ch:2,dur:310},{ch:4,dur:980},{ch:5,dur:42}] },
     { off: 96,   src: 'default', app: '天气助手',     appid: 'com.demo.weather',      title: '明日有暴雨', c: '北京明日 18:00 起暴雨，请注意出行。', rule: null, act: 'blocked', dl: [] },
     { off: 122,  src: 'iphone', app: '信息',        appid: 'com.apple.MobileSMS',   title: '【京东】验证码 104238', c: '您的验证码为 104238，用于登录京东 App。', rule: '短信验证码直达', act: 'forwarded', dl: [{ch:1,dur:71}] },
     { off: 160,  src: 'nas', app: 'NAS',         appid: 'Synology',              title: '存储池降级', c: 'StoragePool1 已降级，RAID 冗余丢失。', rule: 'NAS 系统告警', act: 'forwarded', dl: [{ch:1,dur:69},{ch:3,dur:1180}] },
@@ -84,13 +85,13 @@ const MESSAGES = [
     { off: 305,  src: 'default', app: '快递100',     appid: 'kuaidi100',             title: '包裹已签收', c: 'SF1324***78 已签收，感谢使用顺丰。', rule: null, act: 'blocked', dl: [] },
     { off: 480,  src: 'default', app: '营销短信',     appid: 'unknown',              title: '年终大促！点击领取优惠券', c: '尊享年终大促，回复T退订', rule: null, act: 'blocked', dl: [] },
     { off: 640,  src: 'iphone', app: '信息',        appid: 'com.apple.MobileSMS',   title: '【招商银行】验证码 559023', c: '转账验证码 559023，有效期 10 分钟，切勿告知他人。', rule: '短信验证码直达', act: 'forwarded', dl: [{ch:1,dur:78}] },
-    { off: 810,  src: 'default', app: 'GitHub Actions', appid: 'github-actions',     title: 'notifier@dev 构建失败', c: 'Run #283 失败：npm test exit 1', rule: '部署与 CI 通知', act: 'forwarded', dl: [{ch:2,dur:295},{ch:4,dur:1002}] },
+    { off: 810,  src: 'default', app: 'GitHub Actions', appid: 'github-actions',     title: 'notifier@dev 构建失败', c: 'Run #283 失败：npm test exit 1', rule: '部署与 CI 通知', act: 'forwarded', dl: [{ch:2,dur:295},{ch:4,dur:1002},{ch:5,dur:38}] },
     { off: 1450, src: 'nas', app: 'NAS',         appid: 'Synology',              title: '备份任务完成', c: 'HyperBackup 任务 #12 完成，增量 1.2GB。', rule: 'NAS 系统告警', act: 'forwarded', dl: [{ch:1,dur:66},{ch:3,dur:1105}] },
     { off: 1720, src: 'default', app: 'App Store',   appid: 'com.apple.AppStore',    title: '应用更新：Things 3', c: 'Your apps have been updated.', rule: null, act: 'blocked', dl: [] },
     { off: 2100, src: 'iphone', app: '信息',        appid: 'com.apple.MobileSMS',   title: '【12306】车票已兑现', c: '您的订单 G102 09-25 已出票成功。', rule: null, act: 'blocked', dl: [] },
     { off: 2600, src: 'default', app: '服务器监控',   appid: 'prometheus',            title: 'CPU 使用率超阈值 90%', c: 'host: vps-02 持续 5 分钟 CPU>90%', rule: null, act: 'blocked', dl: [] },
     { off: 3200, src: 'iphone', app: '信息',        appid: 'com.apple.MobileSMS',   title: '【淘宝】验证码 736102', c: '短信验证码 736102', rule: '短信验证码直达', act: 'forwarded', dl: [{ch:1,dur:73}] },
-    { off: 4100, src: 'default', app: 'GitHub Actions', appid: 'github-actions',     title: 'apush@main 部署成功', c: 'Run #282 成功，健康检查通过。', rule: '部署与 CI 通知', act: 'forwarded', dl: [{ch:2,dur:302},{ch:4,dur:995}] },
+    { off: 4100, src: 'default', app: 'GitHub Actions', appid: 'github-actions',     title: 'apush@main 部署成功', c: 'Run #282 成功，健康检查通过。', rule: '部署与 CI 通知', act: 'forwarded', dl: [{ch:2,dur:302},{ch:4,dur:995},{ch:5,dur:40}] },
     { off: 5300, src: 'nas', app: 'NAS',         appid: 'Synology',              title: '固件更新可用', c: 'DSM 7.2.2-72806 可更新。', rule: 'NAS 系统告警', act: 'forwarded', dl: [{ch:1,dur:61},{ch:3,dur:1120}] },
     { off: 6600, src: 'default', app: '营销短信',     appid: 'unknown',              title: '积分即将过期提醒', c: '您的 3200 积分将于本周末过期，回复T退订', rule: null, act: 'blocked', dl: [] },
     { off: 8000, src: 'iphone', app: '信息',        appid: 'com.apple.MobileSMS',   title: '【iCloud】Apple ID 登录验证码', c: 'Code: 448201', rule: '短信验证码直达', act: 'forwarded', dl: [{ch:1,dur:82}] },

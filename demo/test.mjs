@@ -66,7 +66,7 @@ ok('非验证码被拦截', d.action === 'blocked' && d.deliveries.length === 0,
 
 r = await call('/api/manager/simulate', { method: 'POST', body: JSON.stringify({ source_id: 'default', payload: { title: 'apush@main 部署成功', content: 'Run #285', appName: 'GitHub' } }) });
 d = await r.json();
-ok('CI 通知命中规则3 → 2 通道', d.action === 'forwarded' && d.deliveries.length === 2, JSON.stringify(d.deliveries && d.deliveries.map(x=>x.channel_name)));
+ok('CI 通知命中规则3 → 3 通道(含 Webhook)', d.action === 'forwarded' && d.deliveries.length === 3 && d.deliveries.some(x => x.channel_type === 'webhook'), JSON.stringify(d.deliveries && d.deliveries.map(x=>x.channel_name)));
 
 r = await call('/api/manager/simulate', { method: 'POST', body: JSON.stringify({ source_id: 'nas', payload: { any: 'raw stuff' } }) });
 d = await r.json();
