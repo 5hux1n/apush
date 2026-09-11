@@ -6,3 +6,6 @@ compatibility_date = "2026-06-01"
 [assets]
 directory = "../public"
 binding = "ASSETS"
+
+# 自定义域名绑定（apush.me 已在 Cloudflare）
+domains = ["apush.me"]
