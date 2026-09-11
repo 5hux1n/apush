@@ -4,6 +4,10 @@
   <img src="https://img.shields.io/badge/node-18%2B-brightgreen?style=flat-square" alt="node">
 </p>
 
+<p align="center">
+  <b>English</b> · <a href="./README.zh-CN.md">简体中文</a>
+</p>
+
 <h1 align="center">aPush</h1>
 
 > Self-hosted push notification relay. Route your messages from anywhere to everywhere.
