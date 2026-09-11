@@ -16,6 +16,22 @@ aPush is a lightweight, self-hosted middleware that receives messages from vario
 
 ---
 
+## 🧪 Live Demo
+
+Full admin UI with seeded data — **read-only**: every write request is rejected at the edge (403), not just hidden in the UI. Includes a built-in **Simulate** playground that runs the real pipeline (parse → rule match → field extraction → template render → channel dispatch) entirely in memory — nothing is stored or delivered.
+
+**[Open Live Demo →](https://apush.me)**
+
+Run your own demo on Cloudflare Workers (free tier, no database needed):
+
+```bash
+cd demo
+npx wrangler login
+npx wrangler deploy
+```
+
+---
+
 ## Features
 
 - **Multi-source** — one server, multiple webhook paths, each with independent parser mode

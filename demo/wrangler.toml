@@ -1,0 +1,8 @@
+name = "apush-demo"
+main = "worker.js"
+compatibility_date = "2026-06-01"
+
+# 静态前端（管理界面 + 资源）由 Cloudflare Assets 托管
+[assets]
+directory = "../public"
+binding = "ASSETS"

@@ -37,6 +37,13 @@ createApp({
             if (typeof url === 'string' && url.includes('/api/manager') && authToken.value) {
                 opts.headers = { ...(opts.headers || {}), 'x-auth-token': authToken.value };
             }
+            // 演示模式：拦截一切写请求（服务端同样会 403，双保险）
+            if (window.__APUSH_DEMO && typeof url === 'string' && url.includes('/api/manager')
+                && (opts.method || 'GET').toUpperCase() !== 'GET'
+                && !url.includes('/simulate') && !url.includes('/auth')) {
+                try { showToast('演示模式：数据只读，试试右下角「🧪 模拟推送」', 'error'); } catch (e) {}
+                return Promise.resolve(new Response(JSON.stringify({ error: 'demo_readonly' }), { status: 403, headers: { 'Content-Type': 'application/json' } }));
+            }
             return _fetch(url, opts);
         };
 
@@ -488,7 +495,10 @@ createApp({
         const checkAuth = async () => {
             try {
                 const res = await fetch('/api/manager/check');
-                if (!res.ok) { const data = await res.json(); if (data.needPassword) { needAuth.value = true; return false; } }
+                let data = null;
+                try { data = await res.clone().json(); } catch (e) {}
+                if (data && data.demo) window.__APUSH_DEMO = true;
+                if (!res.ok) { if (data && data.needPassword) { needAuth.value = true; return false; } }
                 needAuth.value = false; return true;
             } catch (e) { return true; }
         };
@@ -530,6 +540,7 @@ createApp({
             tickUptime();
             uptimeInterval = setInterval(tickUptime, 1000);
             const ok = await checkAuth();
+            if (window.__APUSH_DEMO) { try { injectDemoUI(); } catch (e) { console.error('demo ui:', e); } }
             if (ok) await initApp();
         });
 
@@ -560,3 +571,152 @@ createApp({
         };
     }
 }).mount('#app');
+
+// ==================== 演示模式 UI（仅 demo 注入，生产代码零影响） ====================
+function injectDemoUI() {
+    if (document.getElementById('apush-demo-ui')) return;
+
+    const style = document.createElement('style');
+    style.id = 'apush-demo-ui';
+    style.textContent = `
+        #demo-badge{position:fixed;right:18px;bottom:86px;z-index:9998;background:rgba(0,122,255,.12);border:1px solid rgba(0,122,255,.4);color:#007aff;font-size:.75rem;font-weight:600;padding:4px 10px;border-radius:12px;backdrop-filter:blur(6px)}
+        #demo-fab{position:fixed;right:18px;bottom:26px;z-index:9998;background:#007aff;color:#fff;border:none;border-radius:24px;padding:10px 20px;font-size:.9rem;font-weight:700;cursor:pointer;box-shadow:0 6px 20px rgba(0,122,255,.4)}
+        #demo-fab:hover{background:#0056cc}
+        #demo-mask{position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.45);display:none;align-items:flex-start;justify-content:center;overflow:auto;padding:4vh 12px}
+        #demo-card{background:#1c1c1e;color:#e5e5ea;border-radius:16px;max-width:680px;width:100%;padding:20px 22px;font-size:.86rem;line-height:1.6}
+        #demo-card h3{margin:0 0 2px;font-size:1.05rem;color:#fff}
+        #demo-card .sub{color:#8e8e93;font-size:.75rem;margin-bottom:12px}
+        #demo-card select,#demo-card textarea{width:100%;box-sizing:border-box;background:#2c2c2e;border:1px solid #3a3a3c;color:#e5e5ea;border-radius:8px;padding:8px 10px;font-family:ui-monospace,Menlo,monospace;font-size:.8rem;margin-top:4px}
+        #demo-card textarea{height:130px;resize:vertical}
+        #demo-card label{display:block;margin-top:10px;color:#aeaeb2;font-size:.75rem;font-weight:600}
+        .demo-btn{background:#007aff;border:none;color:#fff;border-radius:8px;padding:8px 18px;font-weight:700;cursor:pointer;margin-top:12px}
+        .demo-btn.ghost{background:#3a3a3c;margin-left:8px}
+        .demo-stage{margin-top:14px;border-top:1px solid #38383a;padding-top:10px}
+        .demo-stage b{color:#fff}
+        .demo-chip{display:inline-block;background:rgba(52,199,89,.15);color:#34c759;border-radius:8px;padding:1px 8px;font-size:.72rem;margin:2px 4px 0 0}
+        .demo-chip.no{background:rgba(142,142,147,.15);color:#8e8e93}
+        .demo-chip.act{background:rgba(0,122,255,.15);color:#409cff}
+        .demo-pre{background:#000;border-radius:8px;padding:10px;overflow:auto;font-size:.74rem;margin:6px 0 0;max-height:220px;white-space:pre-wrap;word-break:break-all}
+        .demo-chan{border:1px solid #38383a;border-radius:10px;padding:8px 12px;margin-top:8px;background:#232325}
+        .demo-err{color:#ff453a;margin-top:8px}
+        .demo-kv{margin:4px 0 0;padding:0;list-style:none}
+        .demo-kv li{display:flex;gap:8px}
+        .demo-kv .k{color:#8e8e93;flex:0 0 88px;font-size:.74rem}
+    `;
+    document.head.appendChild(style);
+
+    const badge = document.createElement('div');
+    badge.id = 'demo-badge';
+    badge.textContent = '🔒 演示模式 · 只读快照';
+    document.body.appendChild(badge);
+
+    const fab = document.createElement('button');
+    fab.id = 'demo-fab';
+    fab.textContent = '🧪 模拟推送';
+    document.body.appendChild(fab);
+
+    const mask = document.createElement('div');
+    mask.id = 'demo-mask';
+    document.body.appendChild(mask);
+
+    const SAMPLES = {
+        'iphone': {
+            title: '【支付宝】登录验证码 382915',
+            content: '您正在登录支付宝，验证码 382915，5 分钟内有效，请勿泄露。',
+            appName: '信息', appID: 'com.apple.MobileSMS',
+            device: 'iPhone 15 Pro'
+        },
+        'nas': 'System: Volume 1 已降级，RAID 冗余丢失，请立即检查硬盘。',
+        'default': { title: 'GitHub Actions 部署通知', content: 'apush@main Run #285 成功，部署完成。', appName: 'GitHub' }
+    };
+
+    let sources = [];
+    const sel = document.createElement('select');
+    fetch('/api/manager/sources').then(r => r.json()).then(list => {
+        sources = list;
+        sel.innerHTML = sources.map(s => `<option value="${s.path || 'default'}">${s.name}（${s.parser_mode}）</option>`).join('');
+    }).catch(() => {
+        sel.innerHTML = '<option value="iphone">iPhone 快捷指令（auto）</option><option value="nas">NAS 监控（raw）</option><option value="default">默认来源（auto）</option>';
+    });
+
+    const ta = document.createElement('textarea');
+    ta.spellcheck = false;
+    ta.value = JSON.stringify(SAMPLES['iphone'], null, 2);
+    sel.addEventListener('change', () => {
+        const s = SAMPLES[sel.value];
+        ta.value = typeof s === 'string' ? s : JSON.stringify(s, null, 2);
+    });
+
+    const out = document.createElement('div');
+
+    mask.innerHTML = `
+        <div id="demo-card">
+            <h3>🧪 模拟推送</h3>
+            <div class="sub">完整走一遍真实管线：<b>解析 → 规则匹配 → 字段提取 → 模板渲染 → 通道分发</b>。<br>纯内存 dry-run：不落库、不真实投递，随便玩。</div>
+            <div class="demo-form"></div>
+            <button class="demo-btn" data-run>▶ 运行模拟</button>
+            <button class="demo-btn ghost" data-close>关闭</button>
+            <div data-out></div>
+        </div>`;
+    const formBox = mask.querySelector('.demo-form');
+    const l1 = document.createElement('label'); l1.textContent = '来源 (source)';
+    formBox.append(l1, sel);
+    const l2 = document.createElement('label'); l2.textContent = '入站 payload（JSON / 纯文本均可）';
+    formBox.append(l2, ta);
+
+    const outBox = mask.querySelector('[data-out]');
+    outBox.replaceWith(out);
+
+    fab.addEventListener('click', () => { mask.style.display = 'flex'; });
+    mask.querySelector('[data-close]').addEventListener('click', () => { mask.style.display = 'none'; });
+    mask.addEventListener('click', (e) => { if (e.target === mask) mask.style.display = 'none'; });
+
+    const esc = (s) => String(s ?? '').replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+
+    mask.querySelector('[data-run]').addEventListener('click', async () => {
+        let payload;
+        const raw = ta.value.trim();
+        try { payload = JSON.parse(raw); }
+        catch (e) {
+            if (sel.value === 'nas' || !raw.startsWith('{') && !raw.startsWith('"')) payload = { message: raw };
+            else { out.innerHTML = '<div class="demo-err">payload JSON 解析失败：' + esc(e.message) + '</div>'; return; }
+        }
+        out.innerHTML = '<div class="sub" style="margin-top:12px">运行中…</div>';
+        let r;
+        try {
+            r = await fetch('/api/manager/simulate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ source_id: sel.value, payload }) });
+        } catch (e) { out.innerHTML = '<div class="demo-err">请求失败：' + esc(e.message) + '</div>'; return; }
+        const d = await r.json();
+        if (!r.ok) { out.innerHTML = '<div class="demo-err">' + esc(d.error || 'failed') + '</div>'; return; }
+
+        let html = '';
+        html += `<div class="demo-stage"><b>① 解析 Parser</b> <span class="demo-chip act">${esc(d.source.name)} · ${esc(d.source.parser_mode)}</span>
+            <ul class="demo-kv">
+            <li><span class="k">title</span><span>${esc(d.parsed.title)}</span></li>
+            <li><span class="k">content</span><span>${esc((d.parsed.content || '').slice(0, 160))}</span></li>
+            <li><span class="k">app_name</span><span>${esc(d.parsed.app_name)} ${d.parsed.app_id ? `<span class="demo-chip no">${esc(d.parsed.app_id)}</span>` : ''}</span></li>
+            ${Object.keys(d.parsed.metadata || {}).length ? `<li><span class="k">metadata</span><span class="demo-chip no">${esc(JSON.stringify(d.parsed.metadata))}</span></li>` : ''}
+            </ul></div>`;
+
+        const rows = (d.matching.trace || []).map(t =>
+            t.pass ? `<div>✅ <b>${esc(t.rule)}</b> ${t.hitWords ? `命中关键词 ${t.hitWords.map(w => `<span class="demo-chip">${esc(w)}</span>`).join('')}` : '（无关键词，全匹配）'}</div>`
+                   : `<div style="opacity:.55">⬜ ${esc(t.rule)} — ${esc(t.reason || '未通过')}</div>`).join('');
+        html += `<div class="demo-stage"><b>② 规则匹配 Policy</b>${rows || '<div>无启用规则</div>'}</div>`;
+
+        if (d.rewritten.rules && d.rewritten.rules.length) {
+            html += `<div class="demo-stage"><b>③ 字段提取 / 清洗</b>${d.rewritten.rules.map(x => `<div>${esc(x.desc || x.error)}</div>`).join('')}
+                <div class="sub" style="margin-top:4px">message: 「${esc((d.rewritten.before.message || '').slice(0, 60))}…」 → 「${esc(d.rewritten.after.message)}」</div></div>`;
+        }
+
+        if (d.action === 'forwarded') {
+            html += `<div class="demo-stage"><b>④ 投递分发 Pusher</b>（预览，未真实发送）`;
+            html += d.deliveries.map(x => `<div class="demo-chan"><b>${esc(x.channel_name)}</b> <span class="demo-chip">${esc(x.channel_type)}</span><span class="demo-chip no">${esc(x.template_source)}</span>
+                <div class="demo-pre">${esc(typeof x.payload === 'string' ? x.payload : JSON.stringify(x.payload, null, 2))}</div></div>`).join('');
+            html += `</div>`;
+        } else {
+            html += `<div class="demo-stage"><b>④ 动作 Action</b><div><span class="demo-chip no">blocked</span> 未命中任何规则 → 消息将被记录为「已拦截」，不投递。</div></div>`;
+        }
+        out.innerHTML = html;
+    });
+}
+
