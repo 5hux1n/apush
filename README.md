@@ -35,7 +35,7 @@ aPush is a lightweight, self-hosted middleware that receives messages from vario
 ### Install
 
 ```bash
-git clone https://github.com/11195666/apush.git
+git clone https://github.com/5hux1n/apush.git
 cd apush
 npm install
 cp .env.example .env   # edit DB credentials
@@ -124,5 +124,5 @@ MIT © 2026
 
 <p align="center">
   <a href="https://apush.cn">Website</a> ·
-  <a href="https://github.com/11195666/apush">GitHub</a>
+  <a href="https://github.com/5hux1n/apush">GitHub</a>
 </p>
