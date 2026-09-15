@@ -101,6 +101,8 @@ node server.js         # 启动服务（默认端口 25717）
 
 ## API
 
+完整的接收端部署、字段规范、鉴权、响应语义和 curl 示例请阅读 **[Webhook 接收端规范](./WEBHOOK.md)**。
+
 向 aPush 推送消息（任意方法、任意 Content-Type 均可）：
 
 ```
