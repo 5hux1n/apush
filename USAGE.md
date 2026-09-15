@@ -115,14 +115,14 @@ curl -X POST http://IP:25717/api/webhook/nas -H "Content-Type: text/plain" -d "�
 
 | 类型 | 字段 | 备注 |
 |---|---|---|
-| `bark` | `server?`, `bark_key` | server 留空用 `.env` 的 `BARK_SERVER`；可配 JSON 模板扩展 group/sound/icon/level |
-| `wecom`（企微应用） | `corpid`, `corpsecret`, `agentid`, `touser?`, `wecom_msgtype` | **必须把应用"可信域名/IP 白名单"配好**，否则 60020；msgtype 支持 text / markdown / textcard / news |
-| `wecom-bot`（群机器人） | `webhook_key`, `wecom_msgtype` | 群 Webhook 地址 `key=` 后面那段 |
-| `dingtalk` | `webhook_token`, `secret?`, `atMobiles?`, `msgtype` | 机器人开了「加签」才填 `secret`（自动算签名）；开了「自定义关键词」则消息必须含关键词，建议模板带前缀 |
-| `feishu` | `webhook_url`, `secret?` | 飞书群自定义机器人 |
-| `tg` | `bot_token`, `chat_id` | BotFather 建 bot；chat_id 支持 `@username` 或数字 ID |
-| `email` | `host`, `port`, `secure`, `auth.user`, `auth.pass`, `to` | 465 端口 `secure: true`，587 用 `false`（自动 STARTTLS）；pass 用 QQ/163 的**授权码**不是登录密码 |
-| `webhook`（下游） | `url`, `method?`, `headers?` | 把你收到的消息按模板原样 POST 给任何系统 |
+| `bark` | `bark_key`, `server_url?` | server 留空使用 `https://api.day.app`；可配 JSON 模板扩展 group/sound/icon/level |
+| `wecom`（企微应用） | `corp_id`, `agent_id`, `secret`, `user_id?`, `wecom_msgtype` | 必须配置应用权限与可信 IP；msgtype 支持 text / markdown / textcard / news |
+| `wecom-bot`（群机器人） | `webhook_url`, `msgtype?` | 使用群机器人完整 URL（包含 `key`）；msgtype 为 text / markdown |
+| `dingtalk` | `webhook_url`, `secret?`, `msgtype?` | 开启「加签」才填 `secret`（自动签名）；开启关键词则模板必须含关键词 |
+| `feishu` | `webhook_url` | 飞书群自定义机器人完整 Webhook 地址 |
+| `tg` | `bot_token`, `chat_id` | BotFather 创建 bot；Bot 必须加入目标群并有发言权限 |
+| `email` | `smtp_host`, `smtp_port?`, `smtp_user`, `smtp_pass`, `to` | 465 使用 TLS，587 自动 STARTTLS；pass 用邮箱授权码 |
+| `webhook`（下游） | `webhook_url` | 始终 POST JSON；需要特殊 Header 或签名请使用中间层转换 |
 
 渠道卡片里的**测试**按钮会真实发一条样例消息（占配额，钉钉/企微注意频控）。
 

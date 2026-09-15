@@ -153,7 +153,75 @@ curl -X POST 'https://your-domain.example/api/webhook/nas' \
 | `403` | 来源令牌无效 |
 | `500` | 服务端处理异常；检查 Node.js 与数据库日志 |
 
-## 7. 下游 Webhook 渠道格式
+## 7. 输出渠道配置与接收方要求
+
+每个输出渠道在管理面板中保存为一条 `push_channels` 记录：`type` 决定渠道，`config` 保存 JSON 配置，`template` 可选。以下字段名以当前程序实际读取的名称为准。
+
+### Bark（iOS）
+
+```json
+{"bark_key":"设备 Key","server_url":"https://api.day.app"}
+```
+
+`bark_key` 必填，`server_url` 可选，留空使用 `https://api.day.app`。aPush 优先 POST JSON 到 `<server_url>/<bark_key>`，失败时回退为 Bark 路径格式 GET。模板应渲染为 JSON，可使用 Bark 的 `title`、`body`、`sound`、`group`、`icon`、`url`、`level` 等字段。
+
+### 企业微信应用消息
+
+```json
+{"corp_id":"ww企业ID","agent_id":1000002,"secret":"应用Secret","user_id":"@all","wecom_msgtype":"textcard"}
+```
+
+`corp_id`、`agent_id`、`secret` 必填；`user_id` 可选，默认 `@all`。`wecom_msgtype` 支持 `text`、`markdown`、`textcard`（默认）和 `news`。aPush 先调用企业微信 `gettoken`，再向 `message/send` POST JSON；后台必须配置应用可见范围、发送权限及可信 IP，否则可能返回 `60020`。
+
+### 企业微信群机器人
+
+```json
+{"webhook_url":"https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=xxx","msgtype":"markdown"}
+```
+
+`webhook_url` 必填且须包含 `key`；`msgtype` 为 `text` 或 `markdown`，默认 `text`。发送体分别为 `{"msgtype":"text","text":{"content":"文本"}}` 或 `{"msgtype":"markdown","markdown":{"content":"# Markdown"}}`。
+
+### 钉钉群机器人
+
+```json
+{"webhook_url":"https://oapi.dingtalk.com/robot/send?access_token=xxx","secret":"SECxxx","msgtype":"markdown"}
+```
+
+`webhook_url` 必填；启用“加签”时必须填写 `secret`，aPush 会按钉钉规则计算 HMAC-SHA256，并追加 `timestamp`、`sign`；未启用则留空。`msgtype` 支持 `text` 和 `markdown`（默认 `markdown`）。启用关键词安全策略时，模板正文必须包含关键词。
+
+### 飞书群机器人
+
+```json
+{"webhook_url":"https://open.feishu.cn/open-apis/bot/v2/hook/xxx"}
+```
+
+`webhook_url` 必填。aPush 固定 POST 交互式卡片 JSON，包含标题、正文和来源时间；飞书后台的关键词、IP 或签名安全设置必须匹配。
+
+### Telegram Bot
+
+```json
+{"bot_token":"123456:ABC...","chat_id":"-1001234567890"}
+```
+
+两个字段都必填。aPush POST 到 Telegram `sendMessage`，请求体包含 `chat_id`、`text`、`parse_mode=HTML` 和 `disable_web_page_preview=true`。Bot 必须已加入目标群并具备发言权限。
+
+### 邮件（SMTP）
+
+```json
+{"smtp_host":"smtp.example.com","smtp_port":465,"smtp_user":"sender@example.com","smtp_pass":"授权码","to":"receiver@example.com"}
+```
+
+`smtp_host`、`smtp_user`、`smtp_pass`、`to` 必填；端口默认 `465`，465 使用 TLS，587 使用 STARTTLS。`smtp_pass` 通常填写服务商授权码；程序以 `smtp_user` 作为发件人，正文按 HTML 发送，当前支持单个收件人。
+
+### 自定义 Webhook
+
+```json
+{"webhook_url":"https://example.com/api/receive"}
+```
+
+`webhook_url` 必填。aPush 始终 POST JSON，不额外添加鉴权头；接收方应接受 `Content-Type: application/json` 并返回 2xx。需要签名、特殊 Header 或非 JSON 协议时，请在 n8n、API Gateway 等中间层转换。
+
+## 8. 下游 Webhook 默认格式
 
 aPush 作为发送方转发到自定义 Webhook 渠道时，默认 POST JSON：
 
@@ -169,7 +237,7 @@ aPush 作为发送方转发到自定义 Webhook 渠道时，默认 POST JSON：
 
 在渠道或规则模板中可以自定义 JSON，并使用 `{{title}}`、`{{content}}`、`{{app_name}}`、`{{app_id}}`、`{{url}}`、`{{icon}}`、`{{metadata.xxx}}`、`{{metadata_json}}`、`{{created_at}}` 和 `{{rule_name}}`。模板必须渲染为合法 JSON，否则会使用内置兜底载荷。
 
-## 8. 接入检查清单
+## 9. 接入检查清单
 
 1. HTTPS、端口和反向代理可从发送方访问。
 2. `.env` 数据库配置正确，`node install.js` 已成功执行。
@@ -177,4 +245,3 @@ aPush 作为发送方转发到自定义 Webhook 渠道时，默认 POST JSON：
 4. 至少有一条启用规则，并配置目标渠道。
 5. 用上面的 curl 示例发送测试消息。
 6. 在流转记录确认 `forwarded` 或 `blocked`，在投递日志确认每个渠道的结果。
-
